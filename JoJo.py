@@ -230,11 +230,11 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
     dt_in =  np.sqrt((1-np.sqrt(1-f)*rp_eq)**2-b_0**2)/a_over_rstar/(2*np.pi)*period
     contacts = np.array([t_0-dt_out, t_0-dt_in, t_0+dt_in, t_0+dt_out])
     ####
+    if exp_time == None:
+        exp_time = np.average(np.diff(time_array))
     if f*rp_eq**2 < 1e-6: # if expected oblate signal too small, use spherical transit instead
         flux_array = compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time, supersample_factor=supersample_factor)
         return (flux_array, contacts)
-    if exp_time == None:
-        exp_time = np.average(np.diff(time_array))
     ## handle long exposures ##
     if exp_time>0.007: #if exposure>10min, use supersample_factor
         LONG_EXPOSURE = True
@@ -265,10 +265,12 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
     return (flux_array, contacts)
 
-def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=0.02, supersample_factor=5):
+def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5):
     ''' Compute the flux values at given time array (time_array) due to an oblate planet. Transit parameters are all inside the array transit_parameters. '''
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
+    if exp_time == None:
+        exp_time = np.average(np.diff(time_array))
     ## handle long exposures ##
     if exp_time>0.007: #if exposure>10min, use supersample_factor
         LONG_EXPOSURE = True
