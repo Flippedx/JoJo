@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import spherical_transit as transit
+from occultquad import occultquad
 import time as time_module
 
 def eig_quartic_roots(p):
@@ -124,8 +124,8 @@ def solve_for_intersections(x0, y0, rp_eq, f, epsilon):
         n_intersection = len(z)
         if n_intersection > 2:
             raise IOError('More than 2 intersections found!')
-        elif n_intersection==2 and np.abs(z[0]-z[1])<(rp_eq/1000): # two intersection points too close to each other
-            n_intersection = 1
+        # elif n_intersection==2 and np.abs(z[0]-z[1])<(rp_eq/1000): # two intersection points too close to each other
+        #     n_intersection = 1
         if n_intersection < 2:
             if d0[i] < 1: # fully inside
                 flags[i] = 1
@@ -183,6 +183,8 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
             u2/6.*(x_intersect[:, 1]*y_intersect[:, 1]**3-x_intersect[:, 0]*y_intersect[:, 0]**3)
     ## second, compute contribution from partial ellipse ##
     cosE, sinE = (x_intersect-x0[:, None])/rp_eq, (y_intersect-y0[:, None])/rp_eq/(1-f)
+    cosE[cosE<-1] = -1
+    cosE[cosE>1] = 1
     E = np.arccos(cosE)
     E[sinE<0] *= -1. # the formal definition [-pi, pi)
     E[E[:, 1]>E[:, 0], 0] += 2*np.pi # make sure E_low>E_up
@@ -281,7 +283,7 @@ def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_tim
         LONG_EXPOSURE = False
         time_array_supersample = time_array
     z_array = np.sqrt(b_0**2 + ((time_array_supersample-t_0)/period*2*np.pi*a_over_rstar)**2)
-    flux_array = transit.occultquad(z_array, np.sqrt(1-f)*rp_eq, [u_1, u_2])
+    flux_array = occultquad(z_array, u_1, u_2, np.sqrt(1-f)*rp_eq)
     if LONG_EXPOSURE:
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
     return flux_array
