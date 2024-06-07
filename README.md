@@ -10,7 +10,12 @@ By applying Green’s theorem, the two-dimensional areal integral over the occul
 
 The key function is ```compute_oblate_transit_lightcurve``` in ```JoJo.py```, which returns the light curves with the given transiting parameters and time series. Now it works only for the quadratic limb-darkening law. See ```example.ipynb``` for specific usages.
 
-For comparison, the code to generate quadratic limb-darkening light curves for spherical planets is included in ```spherical_transit.py``` (<a href='https://iopscience.iop.org/article/10.1086/345520'>Mandel & Agol 2002</a>), which, you can call ```compute_spherical_transit_lightcurve``` to generate the light curve of a spherical planet with the same cross-section of the oblate planet.
+For comparison, the code to generate quadratic limb-darkening light curves of spherical planets developed by <a href='https://ui.adsabs.harvard.edu/abs/2013PASP..125...83E/abstract'>Eastman, Gaudi & Agol 2013</a> is included in ```occultquad.py```, you can call ```compute_spherical_transit_lightcurve``` in ```JoJo.py``` to generate the light curve of a spherical planet with the same cross-section of the oblate planet.
+
+### Future work
+- [ ] Applying other LD laws.
+- [ ] Calculate light curves for planets with rings.
+- [ ] May develop JAX version.
 
 ### Reference
 Liu et al. 2024
