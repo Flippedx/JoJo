@@ -48,74 +48,9 @@ def solve_for_intersections(x0, y0, rp_eq, f, epsilon):
     coeffs[:, 2] =-2*(1+b2-2*b2*r2+2*b2*x0**2+2*y0**2)
     coeffs[:, 3] = 4*b2*x0 + 4j*y0
     coeffs[:, 4] = 1-b2
-    ## use real coefficients ##
-#    a2 = rp_eq**2
-#    b2a2 = (1-f)**2
-#    b2 = b2a2 * a2
-#    one_minus_b2a2 = 1-b2a2
-#    x2 = x0**2
-#    y2 = y0**2
-#    ##
-#    coeffs = np.zeros((n_points, 5))
-#    coeffs[:, 0] = one_minus_b2a2**2
-#    coeffs[:, 1] = 4*one_minus_b2a2*b2a2*x0
-#    coeffs[:, 2] = 2*(-1+b2-b2*b2a2+3*b2a2**2*x2+y2+b2a2*(1-x2+y2))
-#    coeffs[:, 3] = -4*b2a2*x0*(1-b2+b2a2*x2+y2)
-#    coeffs[:, 4] = b2**2 + b2a2**2*x2*x2 + (1-y2)**2 + 2*b2a2*x2*(1+y2) - 2*b2*(1+b2a2*x2+y2)
-    ##
-#    xp = np.zeros((n_points, 4)).astype(complex)
-#    xp[test] = fqs.quartic_roots(coeffs[test])
-##    xp = fqs.quartic_roots(coeffs)
-#    xp = xp[np.isreal(xp)].real
-#    yp_sq = 1-xp**2
-#    yp = np.zeros_like(xp)
-#    yp = ((xp-x0[:,None])**2*b2a2 + yp_sq + y2[:,None] - b2)/(2*y0[:,None])
-##    yp[y0==0] = np.array([-1., 1.])*np.sqrt(yp_sq[y0==0])
-#    return (flags, x_intersect, y_intersect, alphas)
-    ## this does not work: the fast-version quartic solver cannot handle complex coefficients... ##
-#    roots = np.array([np.roots(ci) for ci in coeffs])
-#    good = np.abs((np.real(roots)-x0[:, None])**2+(np.imag(roots)-y0[:, None])**2/b2-r2)<epsilon
-#    n_valid = np.sum(good.astype(int), axis=1)
-#    flags[(n_valid<2)*(d0<1)] = 1
-#    flags[(n_valid<2)*(d0>1)] =-1
-#    if np.any(n_valid) > 2:
-#        raise IOError('more than two intersections found!')
-#    INTERSECT = n_valid==2
-#    temp = INTERSECT[:, None]*good
-#    print(temp.shape)
-#    z = roots[INTERSECT[:, None]*good].reshape(-1, 2)
-#    alphas_ini = np.angle(z)
-#    print(z)
-#    print(alphas_ini.shape, INTERSECT.shape, good.shape, z.shape, roots.shape)
-#    order = np.argsort(alphas_ini, axis=1)
-#    z = z[order]
-#    x_intersect, y_intersect = np.real(z), np.imag(z)
-#    return (flags, x_intersect, y_intersect, alphas)
-    ########
     for i in range(n_points):
         if flags[i] != 0:
             continue
-#        ## if real coefficients are used ##
-##        xp = eig_quartic_roots(coeffs[i])
-#        xp = np.roots(coeffs[i])
-#        xp = xp[np.isreal(xp)].real
-#        yp_sq = 1-xp**2
-#        if y0[i] != 0:
-#            yp = ((xp-x0[i])**2*b2a2 + yp_sq + y2[i] - b2)/(2*y0[i])
-#        else:
-#            yp = np.array([-1., 1.])*np.sqrt(yp_sq)
-#        n_intersection = len(xp)
-#        if n_intersection < 2:
-#            if d0[i] < 1: # fully inside
-#                flags[i] = 1
-#            else: # fully outside
-#                flags[i] =-1
-#            continue
-#        alphas_ini = np.arccos(xp)
-#        alphas_ini[yp<0] *= -1
-#        order = np.argsort(alphas_ini)
-#        alphas[i] = alphas_ini[order]
-#        x_intersect[i], y_intersect[i] = xp, yp
         ## if complex coefficients are used ##
         z = np.roots(coeffs[i]) # this can be improved
         xp, yp = np.real(z), np.imag(z)
