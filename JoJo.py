@@ -84,7 +84,7 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
         raise IOError('at least one point not fully inside!')
     r2 = rp_eq**2
     d2 = x0**2 + y0**2
-    delta_flux_analytic = np.pi*(1-f)*r2*(1-u1-2*u2+u2/4.*((2-f)*r2+4*d2))
+    delta_flux_analytic = np.pi*(1-f)*r2*(1-u1-2*u2+u2/4.*((2-2*f+f**2)*r2+4*d2))
     delta_flux_numeric = np.zeros_like(x0, dtype=float)
     ##
     n_step = 30
