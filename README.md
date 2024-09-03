@@ -18,4 +18,4 @@ For comparison, the code to generate quadratic limb-darkening light curves of sp
 - [ ] May develop JAX version.
 
 ### Reference
-Liu et al. 2024
+<a href='https://arxiv.org/abs/2406.11644'>Liu et al. 2024</a>
