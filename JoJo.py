@@ -158,7 +158,42 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
     return delta_flux
 
 def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=30):
-    ''' Compute the flux values at given time array (time_array) due to an oblate planet. Transit parameters are all inside the array transit_parameters. '''
+    """
+    Compute the lightcurve at given time array (time_array) due to an oblate planet.
+    Parameters:
+    -----------
+    transit_parameters : array-like
+        Array containing the transit parameters:
+        - t_0 : float
+            Time of the transit center.
+        - b_0 : float
+            Impact parameter.
+        - period : float
+            Orbital period of the planet.
+        - rp_eq : float
+            Equatorial radius of the planet.
+        - f : float
+            Oblateness of the planet.
+        - obliquity : float
+            Obliquity of the planet.
+        - u_1 : float
+            Linear limb-darkening coefficient.
+        - u_2 : float
+            Quadratic limb-darkening coefficient.
+        - log10_rho_star : float
+            Logarithm (base 10) of the stellar density.
+    time_array : array-like
+        Array of time points at which to compute the light curve.
+    exp_time : float, optional
+        Exposure time for each observation. If None, it is set to the average difference between consecutive time points in time_array. Default is None.
+    supersample_factor : int, optional
+        Factor by which to supersample the time array for long exposures. Default is 5.
+    Returns:
+    --------
+    flux_array : array-like
+        Array of flux values corresponding to the input time array.
+    """
+
     epsilon = 1e-10 # precision used in the calculation
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
@@ -203,7 +238,42 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
     return (flux_array, contacts)
 
 def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5):
-    ''' Compute the flux values at given time array (time_array) due to an oblate planet. Transit parameters are all inside the array transit_parameters. '''
+    """
+    Compute the lightcurve at given time array (time_array) due to a spherical planet which has the same projection with the given oblate planet.
+    Parameters:
+    -----------
+    transit_parameters : array-like
+        Array containing the transit parameters:
+        - t_0 : float
+            Time of the transit center.
+        - b_0 : float
+            Impact parameter.
+        - period : float
+            Orbital period of the planet.
+        - rp_eq : float
+            Equatorial radius of the planet.
+        - f : float
+            Oblateness of the planet.
+        - obliquity : float
+            Obliquity of the planet.
+        - u_1 : float
+            Linear limb-darkening coefficient.
+        - u_2 : float
+            Quadratic limb-darkening coefficient.
+        - log10_rho_star : float
+            Logarithm (base 10) of the stellar density.
+    time_array : array-like
+        Array of time points at which to compute the light curve.
+    exp_time : float, optional
+        Exposure time for each observation. If None, it is set to the average difference between consecutive time points in time_array. Default is None.
+    supersample_factor : int, optional
+        Factor by which to supersample the time array for long exposures. Default is 5.
+    Returns:
+    --------
+    flux_array : array-like
+        Array of flux values corresponding to the input time array.
+    """
+
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
     if exp_time == None:
