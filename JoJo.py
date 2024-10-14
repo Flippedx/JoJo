@@ -160,8 +160,9 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
 def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=30):
     """
     Compute the lightcurve at given time array (time_array) due to an oblate planet.
-    Parameters:
-    -----------
+
+    Parameters
+    ----------
     transit_parameters : array-like
         Array containing the transit parameters:
         - t_0 : float
@@ -177,7 +178,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         - obliquity : float
             Obliquity of the planet.
         - u_1 : float
-            Linear limb-darkening coefficient.
+            Quadratic limb-darkening coefficient.
         - u_2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
@@ -188,8 +189,9 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         Exposure time for each observation. If None, it is set to the average difference between consecutive time points in time_array. Default is None.
     supersample_factor : int, optional
         Factor by which to supersample the time array for long exposures. Default is 5.
-    Returns:
-    --------
+
+    Returns
+    -------
     flux_array : array-like
         Array of flux values corresponding to the input time array.
     """
@@ -240,6 +242,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
 def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5):
     """
     Compute the lightcurve at given time array (time_array) due to a spherical planet which has the same projection with the given oblate planet.
+
     Parameters:
     -----------
     transit_parameters : array-like
@@ -257,7 +260,7 @@ def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_tim
         - obliquity : float
             Obliquity of the planet.
         - u_1 : float
-            Linear limb-darkening coefficient.
+            Quadratic limb-darkening coefficient.
         - u_2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
@@ -268,6 +271,7 @@ def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_tim
         Exposure time for each observation. If None, it is set to the average difference between consecutive time points in time_array. Default is None.
     supersample_factor : int, optional
         Factor by which to supersample the time array for long exposures. Default is 5.
+        
     Returns:
     --------
     flux_array : array-like
