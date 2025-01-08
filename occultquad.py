@@ -92,7 +92,7 @@ def occultquad(z,u1,u2,p0):
         muo1 =1.-((1.-u1-2.*u2)*lambdae+(u1+2.*u2)*(lambdad+2./3.*(p > z))+ \
                   u2*etad)/omega
         mu0=1.-lambdae
-        return [muo1,mu0]
+        return muo1
 
     # Case 11 - the  source is completely occulted:
     if p >= 1.:
@@ -107,7 +107,7 @@ def occultquad(z,u1,u2,p0):
                 muo1 =1.-((1.-u1-2.*u2)*lambdae+(u1+2.*u2)*(lambdad+2./3.* \
                                                  (p > z))+u2*etad)/omega
                 mu0=1.-lambdae
-                return [muo1,mu0]
+                return muo1
             notusedyet = notusedyet[notused2]
                 
     # Case 2, 7, 8 - ingress/egress (uniform disk only)
@@ -161,7 +161,7 @@ def occultquad(z,u1,u2,p0):
             muo1 =1.-((1.-u1-2.*u2)*lambdae+(u1+2.*u2)*\
                       (lambdad+2./3.*(p > z))+u2*etad)/omega
             mu0=1.-lambdae
-            return [muo1,mu0]
+            return muo1
         notusedyet = notusedyet[notused3]
 
     # Case 2, Case 8 - ingress/egress (with limb darkening)
@@ -191,7 +191,7 @@ def occultquad(z,u1,u2,p0):
             muo1 =1.-((1.-u1-2.*u2)*lambdae+(u1+2.*u2)*(lambdad+2./3.*\
                                                      (p > z))+u2*etad)/omega
             mu0=1.-lambdae
-            return [muo1,mu0]
+            return muo1
         notusedyet = notusedyet[notused4]
 
     # Case 3, 4, 9, 10 - planet completely inside star
@@ -219,7 +219,7 @@ def occultquad(z,u1,u2,p0):
                     muo1 =1.-((1.-u1-2.*u2)*lambdae+(u1+2.*u2)*\
                               (lambdad+2./3.*(p > z))+u2*etad)/omega
                     mu0=1.-lambdae
-                    return [muo1,mu0]
+                    return muo1
                 ndxuse = ndxuse[notused6[0]]
 
             ## Case 10 - origin of planet hits origin of star
@@ -232,7 +232,7 @@ def occultquad(z,u1,u2,p0):
                     muo1 =1.-((1.-u1-2.*u2)*lambdae+(u1+2.*u2)*\
                               (lambdad+2./3.*(p > z))+u2*etad)/omega
                     mu0=1.-lambdae
-                    return [muo1,mu0]
+                    return muo1
                 ndxuse = ndxuse[notused7[0]]
    
             q=sqrt((x2[ndxuse]-x1[ndxuse])/(1.-x1[ndxuse]))
