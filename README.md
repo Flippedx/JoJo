@@ -4,7 +4,7 @@ JoJo is a Python code for computing the transiting light curves of oblate planet
 
 ### Theory
 
-By applying Green’s theorem, the two-dimensional areal integral over the occultation area can be transferred into a one-dimensional line integration over the boundary. The detailed derivation can be found in <a href='https://arxiv.org/abs/2406.11644'>Liu et al. 2024</a>.
+By applying Green’s theorem, the two-dimensional areal integral over the occultation area can be transferred into a one-dimensional line integration over the boundary. The detailed derivation can be found in <a href='https://iopscience.iop.org/article/10.3847/1538-3881/ad9b8c'>Liu et al. 2024</a>.
 
 ### Usage
 
@@ -18,4 +18,4 @@ For comparison, the code to generate quadratic limb-darkening light curves of sp
 - [ ] May develop JAX version.
 
 ### Reference
-<a href='https://arxiv.org/abs/2406.11644'>Liu et al. 2024</a>
+<a href='https://iopscience.iop.org/article/10.3847/1538-3881/ad9b8c'>Liu et al. 2024</a>
