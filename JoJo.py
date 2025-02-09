@@ -257,7 +257,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         Array of flux values corresponding to the input time array.
     """
 
-    epsilon = 1e-10 # precision used when calculate the intersection points
+    epsilon = 1e-8 # precision used when calculate the intersection points
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
 
