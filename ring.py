@@ -291,14 +291,14 @@ def ring_lc(transit_parameters, time_array, n_step=300):
             Flattening factor of the ring.
         - obliquity : float
             Obliquity of the ring.
-        - opacity : float
-            Opacity of the ring.
         - u1 : float
             Linear limb-darkening coefficient.
         - u2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
             Logarithm (base 10) of the stellar density.
+        - opacity : float
+            Opacity of the ring.
     time_array : array_like
         Array of time points at which to compute the light curve.
     n_step : int, optional
@@ -310,7 +310,7 @@ def ring_lc(transit_parameters, time_array, n_step=300):
         Array of flux values corresponding to the input time points.
     """
 
-    t_0, b_0, period, r_p, r_in, r_out, f_r, obliquity, opacity, u1, u2, log10_rho_star = transit_parameters
+    t_0, b_0, period, r_p, r_in, r_out, f_r, obliquity, u1, u2, log10_rho_star, opacity = transit_parameters
     if r_in > r_out:
         raise IOError('The radius of the inner ring should be smaller than the outer ring')
     if r_in < r_p:
@@ -331,9 +331,9 @@ def ring_lc(transit_parameters, time_array, n_step=300):
     planet_part, contacts_p = compute_spherical_transit_lightcurve(pars_p, time_array)
     planet_part = 1 - planet_part
 
-    flags_sp, x_sp, y_sp, alphas_sp = solve_star_ellipse_intersections(x0, y0, r_p, 0., 1e-10)
-    flags_sri, x_sri, y_sri, alphas_sri = solve_star_ellipse_intersections(x0, y0, r_in, f_r, 1e-10)
-    flags_sro, x_sro, y_sro, alphas_sro = solve_star_ellipse_intersections(x0, y0, r_out, f_r, 1e-10)
+    flags_sp, x_sp, y_sp, alphas_sp = solve_star_ellipse_intersections(x0, y0, r_p, 0., 1e-8)
+    flags_sri, x_sri, y_sri, alphas_sri = solve_star_ellipse_intersections(x0, y0, r_in, f_r, 1e-8)
+    flags_sro, x_sro, y_sro, alphas_sro = solve_star_ellipse_intersections(x0, y0, r_out, f_r, 1e-8)
     
     flux_total = np.pi*(6-2*u1-u2)/6.
 
