@@ -97,8 +97,8 @@ def solve_star_ellipse_intersections(x0, y0, rp_eq, f, epsilon):
     alphas_sorted = np.take_along_axis(alphas_ini, order, axis=1)
     z_sorted = np.take_along_axis(z_valid, order, axis=1)
     alphas[valid_indices, :alphas_sorted.shape[1]] = alphas_sorted
-    x_intersect[valid_indices, :z_sorted.shape[1]] = np.real(z_sorted)
-    y_intersect[valid_indices, :z_sorted.shape[1]] = np.imag(z_sorted)   
+    x_intersect[valid_indices, :z_sorted.shape[1]] = np.real(z_sorted) # e.g. [0.6, 0.8, nan, nan]
+    y_intersect[valid_indices, :z_sorted.shape[1]] = np.imag(z_sorted) # e.g. [0.8, 0.6, 0, 0]
     # for i in range(n_points):
     #     if flags[i] != 0:
     #         continue
@@ -257,7 +257,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         Array of flux values corresponding to the input time array.
     """
 
-    epsilon = 1e-10 # precision used when calculate the intersection points
+    epsilon = 1e-8 # precision used when calculate the intersection points
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
 
