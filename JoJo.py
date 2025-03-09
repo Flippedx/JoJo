@@ -71,6 +71,28 @@ def solve_star_ellipse_intersections(x0, y0, rp_eq, f, epsilon):
     # Filter out roots corresponding to the wrong intersection
     intersect_indices = np.where(flags == 0)[0]
     z = zs[intersect_indices]
+
+    # Polish the roots using Newton-Raphson with improved numerical stability
+    z_polish = z.copy()
+    max_iter = 10  # usually enough iterations
+    for _ in range(max_iter):
+        z = z_polish
+        f = (1-b2)*z**4 + (4*b2*x0[intersect_indices, None] - 4j*y0[intersect_indices, None])*z**3 + \
+            (-2*(1+b2-2*b2*r2+2*b2*x0[intersect_indices, None]**2+2*y0[intersect_indices, None]**2))*z**2 + \
+            (4*b2*x0[intersect_indices, None] + 4j*y0[intersect_indices, None])*z + (1-b2)
+        df = 4*(1-b2)*z**3 + 3*(4*b2*x0[intersect_indices, None] - 4j*y0[intersect_indices, None])*z**2 + \
+            2*(-2*(1+b2-2*b2*r2+2*b2*x0[intersect_indices, None]**2+2*y0[intersect_indices, None]**2))*z + \
+            (4*b2*x0[intersect_indices, None] + 4j*y0[intersect_indices, None])
+        mask = np.abs(df) > 1e-15
+        delta = np.where(mask, f/df, 0)
+        z_polish = np.where(mask, z_polish - delta, z_polish)
+        if np.all(np.abs(delta) < epsilon):
+            break
+
+    xp, yp = np.real(z_polish), np.imag(z_polish)
+    dist_squared = (xp - x0[intersect_indices, None])**2 + (yp - y0[intersect_indices, None])**2 / b2
+    good = np.abs(dist_squared - r2) < epsilon
+    z_good = np.where(good, z_polish, np.nan)
     # Polish the roots using Newton-Raphson with improved numerical stability
     z_polish = z.copy()
     max_iter = 10  # usually enough iterations
@@ -144,7 +166,9 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
     if len(flags) == 0:
         return np.zeros_like(x0, dtype=float)
     a2 = rp_eq**2
+    a2 = rp_eq**2
     d2 = x0**2 + y0**2
+    delta_flux_analytic = np.pi*(1-f)*a2*(1-u1-2*u2+u2/4.*((2-2*f+f**2)*a2+4*d2))
     delta_flux_analytic = np.pi*(1-f)*a2*(1-u1-2*u2+u2/4.*((2-2*f+f**2)*a2+4*d2))
     delta_flux_numeric = np.zeros_like(x0, dtype=float)
     ##
@@ -157,6 +181,10 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
     prefac = (u1/2.+u2)*(1-f)
     xp = x0[:, None] + delta_x
     yp = y0[:, None] + delta_y
+    r2 = xp**2 + yp**2
+    invalid_points = r2 > 1
+    r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
+    mu_p = np.sqrt(1-r2)
     r2 = xp**2 + yp**2
     invalid_points = r2 > 1
     r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
@@ -220,13 +248,17 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
     invalid_points = r2 > 1
     r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
     mu_p = np.sqrt(1-r2)
+    r2 = xp**2 + yp**2
+    invalid_points = r2 > 1
+    r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
+    mu_p = np.sqrt(1-r2)
     integrand = (mu_p*xp + (1-yp**2)*(np.arctan(xp/mu_p)-np.pi/2.)) * (xp-x0[:, None]) # add the pi/2 term to increase the integral precision
     delta_flux_numeric = np.sum(integrand, axis=1)*delta_angles*prefac
     delta_flux_numeric += np.pi/2*(u1/2.+u2)*(y_intersect[:, 0]-y_intersect[:, 0]**3/3.-y_intersect[:, 1]+y_intersect[:, 1]**3/3.) # counteract the pi/2 term
     delta_flux = delta_flux_limb + delta_flux_analytic + delta_flux_numeric
     return delta_flux
 
-def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=100):
+def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=100):
     """
     Compute the lightcurve at given time array (time_array) due to an oblate planet.
 
@@ -309,7 +341,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
     return (flux_array, contacts)
 
-def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5):
+def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_factor=5):
     """
     Compute the lightcurve at given time array (time_array) due to a spherical planet which has the same projection with the given oblate planet.
 
@@ -381,8 +413,8 @@ def test_zhu2014():
     exp_time = 0.001 # short-cadence
     transit_parameters = np.array([t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star])
     time_array = np.linspace(t_0-5/24., t_0+5/24., 1000)
-    flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time)
-    flux_spherical, time_contacts = compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time)
+    flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array, exp_time=exp_time)
+    flux_spherical, time_contacts = spherical_lc(transit_parameters, time_array, exp_time=exp_time)
 #    plot_lightcurves(time_array, flux_oblate, flux_spherical, time_contacts)
     ax1 = plt.subplot(211)
     plt.plot(24*(time_array-t_0), flux_oblate)
@@ -414,15 +446,15 @@ def test_kepler167():
 #    for i in range(10):
 #        transit_parameters[4] = np.random.random()*0.4
 #        transit_parameters[5] = np.random.random()*np.pi - np.pi/2.
-#        flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time)
+#        flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array, exp_time=exp_time)
 #    time_end = time_module.time()
 #    print(time_end-time_start)
 #    return
 
     time_start = time.time()
-    flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array)
+    flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array)
     time_mid = time.time()
-    flux_spherical, time_contacts = compute_spherical_transit_lightcurve(transit_parameters, time_array)
+    flux_spherical, time_contacts = spherical_lc(transit_parameters, time_array)
     time_end = time.time()
     print(time_end-time_mid, time_mid-time_start, (time_mid-time_start)/(time_end-time_mid))
 
@@ -430,7 +462,7 @@ def test_kepler167():
     # obliquities = np.linspace(-90, 90, 7)
     # for value in obliquities:
     #     transit_parameters[5] = value/180.*np.pi
-    #     flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array)
+    #     flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array)
     #     if value < 0:
     #         plt.plot(24*(time_array-t_0), 1e6*(flux_oblate-flux_spherical), ls='--', label='obliquity=%d deg'%value)
     #     else:
