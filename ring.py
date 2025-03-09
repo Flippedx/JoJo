@@ -75,7 +75,10 @@ def ellipse_integral(x_bound, y_bound, x0, y0, a, b, u1, u2, n_step):
         angle = (angle_edge[:, 1:] + angle_edge[:, :-1]) / 2.
         xp = x0[:, None] + a * np.cos(angle)
         yp = y0[:, None] + b * np.sin(angle)
-        mu_p = np.sqrt(1 - xp**2 - yp**2)
+        r2 = xp**2 + yp**2
+        invalid_points = r2 > 1
+        r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
+        mu_p = np.sqrt(1 - r2)
         integrand = (mu_p * xp + (1 - yp**2) * (np.arctan(xp / mu_p) - np.pi / 2.)) * (xp - x0[:, None])
         delta_flux_numeric = np.sum(integrand, axis=1) * delta_angles * prefac
         delta_flux_numeric += np.pi / 2 * (u1 / 2. + u2) * (y_intersect[:, 0] - y_intersect[:, 0]**3 / 3. - y_intersect[:, 1] + y_intersect[:, 1]**3 / 3.)
@@ -364,7 +367,7 @@ if __name__=='__main__':
     opacity = 0.5
 
     for f in [0., 0.2, 0.4]:
-        transit_parameters = [t_0, b_0, period, r_p, r_ri, r_ro, f, obliquity, opacity, u_1, u_2, log10_rho_star]
+        transit_parameters = [t_0, b_0, period, r_p, r_ri, r_ro, f, obliquity, u_1, u_2, log10_rho_star, opacity]
         time_array = np.linspace(-0.1, 0.1, 1000)
         time0 = time.time()
         flux_array = ring_lc(transit_parameters, time_array)
