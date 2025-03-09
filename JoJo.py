@@ -226,7 +226,7 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
     delta_flux = delta_flux_limb + delta_flux_analytic + delta_flux_numeric
     return delta_flux
 
-def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=100):
+def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=100):
     """
     Compute the lightcurve at given time array (time_array) due to an oblate planet.
 
@@ -309,7 +309,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
     return (flux_array, contacts)
 
-def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=None, supersample_factor=5):
+def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_factor=5):
     """
     Compute the lightcurve at given time array (time_array) due to a spherical planet which has the same projection with the given oblate planet.
 
@@ -381,8 +381,8 @@ def test_zhu2014():
     exp_time = 0.001 # short-cadence
     transit_parameters = np.array([t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star])
     time_array = np.linspace(t_0-5/24., t_0+5/24., 1000)
-    flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time)
-    flux_spherical, time_contacts = compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time)
+    flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array, exp_time=exp_time)
+    flux_spherical, time_contacts = spherical_lc(transit_parameters, time_array, exp_time=exp_time)
 #    plot_lightcurves(time_array, flux_oblate, flux_spherical, time_contacts)
     ax1 = plt.subplot(211)
     plt.plot(24*(time_array-t_0), flux_oblate)
@@ -414,15 +414,15 @@ def test_kepler167():
 #    for i in range(10):
 #        transit_parameters[4] = np.random.random()*0.4
 #        transit_parameters[5] = np.random.random()*np.pi - np.pi/2.
-#        flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time)
+#        flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array, exp_time=exp_time)
 #    time_end = time_module.time()
 #    print(time_end-time_start)
 #    return
 
     time_start = time.time()
-    flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array)
+    flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array)
     time_mid = time.time()
-    flux_spherical, time_contacts = compute_spherical_transit_lightcurve(transit_parameters, time_array)
+    flux_spherical, time_contacts = spherical_lc(transit_parameters, time_array)
     time_end = time.time()
     print(time_end-time_mid, time_mid-time_start, (time_mid-time_start)/(time_end-time_mid))
 
@@ -430,7 +430,7 @@ def test_kepler167():
     # obliquities = np.linspace(-90, 90, 7)
     # for value in obliquities:
     #     transit_parameters[5] = value/180.*np.pi
-    #     flux_oblate, time_contacts = compute_oblate_transit_lightcurve(transit_parameters, time_array)
+    #     flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array)
     #     if value < 0:
     #         plt.plot(24*(time_array-t_0), 1e6*(flux_oblate-flux_spherical), ls='--', label='obliquity=%d deg'%value)
     #     else:

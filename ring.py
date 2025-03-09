@@ -1,6 +1,6 @@
 import numpy as np
 import time
-from JoJo import compute_spherical_transit_lightcurve, compute_oblate_transit_lightcurve, full_occultation, solve_star_ellipse_intersections
+from JoJo import oblate_lc, spherical_lc, full_occultation, solve_star_ellipse_intersections
 
 def solve_planet_ring_intersections(x_0, y_0, r_p, r_rin, r_rout, f_r):
     '''Solve the intersections between a planet and a ring.'''
@@ -331,7 +331,7 @@ def ring_lc(transit_parameters, time_array, n_step=300):
     pars_out = [t_0, b_0, period, r_out, f_r, obliquity, u1, u2, log10_rho_star]
     pars_p = [t_0, b_0, period, r_p, 0, 0, u1, u2, log10_rho_star]
 
-    planet_part, contacts_p = compute_spherical_transit_lightcurve(pars_p, time_array)
+    planet_part, contacts_p = spherical_lc(pars_p, time_array)
     planet_part = 1 - planet_part
 
     flags_sp, x_sp, y_sp, alphas_sp = solve_star_ellipse_intersections(x0, y0, r_p, 0., 1e-8)
@@ -342,9 +342,9 @@ def ring_lc(transit_parameters, time_array, n_step=300):
 
     # planet has no intersection with the ring
     if r_p<=r_in*(1-f_r):
-        ring_out_part, contacts_rout = compute_oblate_transit_lightcurve(pars_out, time_array, n_step=n_step)
+        ring_out_part, contacts_rout = oblate_lc(pars_out, time_array, n_step=n_step)
         ring_out_part = 1 - ring_out_part
-        ring_in_part, contacts_rin = compute_oblate_transit_lightcurve(pars_in, time_array, n_step=n_step)
+        ring_in_part, contacts_rin = oblate_lc(pars_in, time_array, n_step=n_step)
         ring_in_part = 1 - ring_in_part
         flux_array = 1 - (planet_part + opacity * (ring_out_part - ring_in_part))
     # planet has intersections with the ring
