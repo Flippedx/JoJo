@@ -281,7 +281,7 @@ def compute_oblate_transit_lightcurve(transit_parameters, time_array, exp_time=N
     contacts = np.array([t_0-dt_out, t_0-dt_in, t_0+dt_in, t_0+dt_out])
 
     ## handle long exposures
-    if exp_time>0.007: #if exposure>10min, use supersample_factor
+    if exp_time>=0.003: #if exposure>5min, use supersample_factor
         LONG_EXPOSURE = True
         exp_time_begin = time_array - 0.5*exp_time
         exp_time_end = time_array + 0.5*exp_time
@@ -358,7 +358,7 @@ def compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_tim
     if exp_time == None:
         exp_time = np.average(np.diff(time_array))
     ## handle long exposures
-    if exp_time>0.007: #if exposure>10min, use supersample_factor
+    if exp_time>=0.003: #if exposure>5min, use supersample_factor
         LONG_EXPOSURE = True
         exp_time_begin = time_array - 0.5*exp_time
         exp_time_end = time_array + 0.5*exp_time
