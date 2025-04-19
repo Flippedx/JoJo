@@ -82,7 +82,7 @@ def occultquad(z,u1,u2,p0):
     if p <= 0.:
         muo1 = zeros(nz) + 1. 
         mu0  = zeros(nz) + 1.
-        return [muo1,mu0]
+        return muo1
 
     ## Case 1 - the star is unocculted:
     ## only consider points with z lt 1+p

@@ -304,7 +304,7 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
     if exp_time == None:
         exp_time = np.average(np.diff(time_array))
     if f*rp_eq**2 < 1e-6: # if expected oblate signal too small, use spherical transit instead
-        flux_array, contacts = compute_spherical_transit_lightcurve(transit_parameters, time_array, exp_time=exp_time, supersample_factor=supersample_factor)
+        flux_array, contacts = spherical_lc(transit_parameters, time_array, exp_time=exp_time, supersample_factor=supersample_factor)
         return (flux_array, contacts)
     
     ## find contact points
