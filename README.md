@@ -7,6 +7,7 @@
 You can install ``JoJo`` through:
 ```
 git clone https://github.com/Flippedx/JoJo
+cd JoJo
 pip install -e .
 ```
 
