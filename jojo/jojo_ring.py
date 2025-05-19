@@ -1,14 +1,12 @@
 import numpy as np
-import time
-from JoJo import oblate_lc, spherical_lc, full_occultation, solve_star_ellipse_intersections
+from .jojo_oblate import oblate_lc, spherical_lc, full_occultation, solve_star_ellipse_intersections
 
 def solve_planet_ring_intersections(x_0, y_0, r_p, r_rin, r_rout, f_r):
     '''Solve the intersections between a planet and a ring.'''
-    factor_in = r_rin**2 * (2*f_r - f_r**2)
-    factor_out = r_rout**2 * (2*f_r - f_r**2)
+    denom = 2*f_r - f_r**2
 
-    x_in = np.sqrt(r_rin**2 * (r_p**2 - r_rin**2 * (1-f_r)**2) / factor_in)
-    y_in = np.sqrt(r_rin**2 * (1-f_r)**2 * (r_rin**2 - r_p**2) / factor_in)
+    x_in = np.sqrt((r_p**2 - r_rin**2 * (1-f_r)**2) / denom)
+    y_in = np.sqrt((1-f_r)**2 * (r_rin**2 - r_p**2) / denom)
     xs_in = np.column_stack((x_0 - x_in, x_0 - x_in, x_0 + x_in, x_0 + x_in))
     ys_in = np.column_stack((y_0 - y_in, y_0 + y_in, y_0 - y_in, y_0 + y_in))
 
@@ -16,8 +14,8 @@ def solve_planet_ring_intersections(x_0, y_0, r_p, r_rin, r_rout, f_r):
         xs_out = np.full_like(xs_in, np.nan)
         ys_out = np.full_like(ys_in, np.nan)
     else:
-        x_out = np.sqrt(r_rout**2 * (r_p**2 - r_rout**2 * (1-f_r)**2) / factor_out)
-        y_out = np.sqrt(r_rout**2 * (1-f_r)**2 * (r_rout**2 - r_p**2) / factor_out)
+        x_out = np.sqrt((r_p**2 - r_rout**2 * (1-f_r)**2) / denom)
+        y_out = np.sqrt((1-f_r)**2 * (r_rout**2 - r_p**2) / denom)
         xs_out = np.column_stack((x_0 - x_out, x_0 - x_out, x_0 + x_out, x_0 + x_out))
         ys_out = np.column_stack((y_0 - y_out, y_0 + y_out, y_0 - y_out, y_0 + y_out))
     return xs_in, ys_in, xs_out, ys_out
@@ -347,6 +345,10 @@ def ring_lc(transit_parameters, time_array, n_step=300):
         ring_in_part, contacts_rin = oblate_lc(pars_in, time_array, n_step=n_step)
         ring_in_part = 1 - ring_in_part
         flux_array = 1 - (planet_part + opacity * (ring_out_part - ring_in_part))
+    elif r_p==r_in:
+        ring_out_part, contacts_rout = oblate_lc(pars_out, time_array, n_step=n_step)
+        ring_out_part = 1 - ring_out_part
+        flux_array = 1 - (planet_part + opacity * (ring_out_part - planet_part))
     # planet has intersections with the ring
     else:
         x_pri, y_pri, x_pro, y_pro = solve_planet_ring_intersections(x0, y0, r_p, r_in, r_out, f_r)
@@ -366,6 +368,7 @@ if __name__=='__main__':
     log10_rho_star = 0.32 # rho_star in unit g/cc
     opacity = 0.5
 
+    import time
     for f in [0., 0.2, 0.4]:
         transit_parameters = [t_0, b_0, period, r_p, r_ri, r_ro, f, obliquity, u_1, u_2, log10_rho_star, opacity]
         time_array = np.linspace(-0.1, 0.1, 1000)

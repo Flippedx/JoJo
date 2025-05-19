@@ -1,8 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from occultquad import occultquad
-import time
-from solve_quartic import multi_quartic#, AE_roots0, Aberth_Ehrlich
+from .occultquad import occultquad
+from .solve_quartic import multi_quartic#, AE_roots0, Aberth_Ehrlich
 # import jax.numpy as jnp
 # import jax
 
@@ -405,6 +403,7 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     return (flux_array, contacts)
 
 def test_zhu2014():
+    import matplotlib.pyplot as plt
     ''' test the program with the Zhu et al. (2014) Figure 1 blue curve. '''
     t_0, b_0, period = 0., 0., 100. # period in days
     rp_eq, f, obliquity = 0.1, 0.1, 0.
@@ -450,7 +449,7 @@ def test_kepler167():
 #    time_end = time_module.time()
 #    print(time_end-time_start)
 #    return
-
+    import time
     time_start = time.time()
     flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array)
     time_mid = time.time()
