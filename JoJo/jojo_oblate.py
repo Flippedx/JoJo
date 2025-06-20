@@ -345,7 +345,7 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     """
     Compute the lightcurve at given time array (time_array) due to a spherical planet which has the same projection with the given oblate planet.
 
-    Parameters:
+    Parameters
     -----------
     transit_parameters : array-like
         Array containing the transit parameters:
@@ -374,7 +374,7 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     supersample_factor : int, optional
         Factor by which to supersample the time array for long exposures. Default is 5.
         
-    Returns:
+    Returns
     --------
     flux_array : array-like
         Array of flux values corresponding to the input time array.

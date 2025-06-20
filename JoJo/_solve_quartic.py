@@ -1,73 +1,7 @@
 import numpy as np
-import jax.numpy as jnp
-import jax
-from jax import lax
-
-# Aberth-Ehrlich method
-@jax.jit
-def AE_roots0(coff):
-    """
-    Computes the initial guesses using the Aberth-Ehrlich method.
-
-    Args:
-        coff (ndarray): Coefficients of the polynomial.
-
-    Returns:
-        ndarray: Array of initial guesses for the roots of the polynomial.
-    """
-    def UV(coff):
-        U = 1 + 1 / jnp.abs(coff[0]) * jnp.max(jnp.abs(coff[:-1]))
-        V = jnp.abs(coff[-1]) / (jnp.abs(coff[-1]) + jnp.max(jnp.abs(coff[:-1])))
-        return U, V
-    def Roots0(coff):
-        U , V = UV(coff)
-        r = jax.random.uniform(jax.random.PRNGKey(0),shape=(coff.shape[0]-1,),minval=V,maxval=U)
-        phi = jax.random.uniform(jax.random.PRNGKey(0),shape=(coff.shape[0]-1,),minval=0,maxval=2*jnp.pi)
-        return r * jnp.exp(1j * phi)
-    roots = Roots0(coff)
-    return roots
-@jax.jit
-def Aberth_Ehrlich(coff, roots, MAX_ITER=50):
-    """
-    Solves a polynomial equation using the Aberth-Ehrlich method.
-    Adopted from https://arxiv.org/abs/2206.00482 Hossein Fatheddin
-    Use jax.lax.custom_root to get precise derivative in automatic differentiation
-
-    Args:
-        coff (ndarray): Coefficients of the polynomial equation.
-        roots (ndarray): Initial guesses for the roots of the polynomial equation.
-        MAX_ITER (int, optional): Maximum number of iterations. Defaults to 100.
-
-    Returns:
-        ndarray: The roots of the polynomial equation.
-
-    """
-    derp = jnp.polyder(coff)
-    mask = 1 - jnp.eye(roots.shape[0])
-    # alpha = jnp.abs(coff)*((2*jnp.sqrt(2))*1j+1)
-
-    def loop_body(carry):
-        roots, coff, cond, ratio_old, n_iter = carry
-        # h = jnp.polyval(coff, roots)
-        # b = jnp.polyval(alpha, jnp.abs(roots))
-        ratio = jnp.polyval(coff, roots) / jnp.polyval(derp, roots)
-
-        sum_term = jnp.nansum(mask * 1 / (roots - roots[:, None]), axis=0)
-        w = ratio / (1 - (ratio * sum_term))
-        cond = jnp.abs(w) > 2e-14
-        # cond = jnp.abs(h) > 1e-15*b
-        roots -= w
-        return (roots, coff, cond, ratio, n_iter + 1)
-
-    def cond_fun(carry):
-        roots, coff, cond, ratio, n_iter = carry
-        return cond.any() & (n_iter < MAX_ITER)
-
-    f = lambda x: jnp.polyval(coff, x)
-    solution = lambda f, x0: lax.while_loop(cond_fun, loop_body, (x0, coff, jnp.ones_like(x0, dtype=bool), x0, 0))[0]
-    sclar = lambda g, y: jnp.linalg.solve(jax.jacobian(g, holomorphic=True)(y), y)
-
-    return lax.custom_root(f, roots, solve=solution, tangent_solve=sclar)
+# import jax.numpy as jnp
+# import jax
+# from jax import lax
 
 # closed-form roots for quadratic, cubic, and quartic polynomials
 # multi_quadratic and multi_quartic adapted from https://github.com/NKrvavica/fqs
@@ -166,3 +100,69 @@ def multi_quartic(a0, b0, c0, d0, e0):
     r2, r3 = multi_quadratic(1, -s, z0 - t) - a0
 
     return np.array([r0, r1, r2, r3]).T
+
+# # Aberth-Ehrlich method
+# @jax.jit
+# def AE_roots0(coff):
+#     """
+#     Computes the initial guesses using the Aberth-Ehrlich method.
+
+#     Args:
+#         coff (ndarray): Coefficients of the polynomial.
+
+#     Returns:
+#         ndarray: Array of initial guesses for the roots of the polynomial.
+#     """
+#     def UV(coff):
+#         U = 1 + 1 / jnp.abs(coff[0]) * jnp.max(jnp.abs(coff[:-1]))
+#         V = jnp.abs(coff[-1]) / (jnp.abs(coff[-1]) + jnp.max(jnp.abs(coff[:-1])))
+#         return U, V
+#     def Roots0(coff):
+#         U , V = UV(coff)
+#         r = jax.random.uniform(jax.random.PRNGKey(0),shape=(coff.shape[0]-1,),minval=V,maxval=U)
+#         phi = jax.random.uniform(jax.random.PRNGKey(0),shape=(coff.shape[0]-1,),minval=0,maxval=2*jnp.pi)
+#         return r * jnp.exp(1j * phi)
+#     roots = Roots0(coff)
+#     return roots
+# @jax.jit
+# def Aberth_Ehrlich(coff, roots, MAX_ITER=50):
+#     """
+#     Solves a polynomial equation using the Aberth-Ehrlich method.
+#     Adopted from https://arxiv.org/abs/2206.00482 Hossein Fatheddin
+#     Use jax.lax.custom_root to get precise derivative in automatic differentiation
+
+#     Args:
+#         coff (ndarray): Coefficients of the polynomial equation.
+#         roots (ndarray): Initial guesses for the roots of the polynomial equation.
+#         MAX_ITER (int, optional): Maximum number of iterations. Defaults to 100.
+
+#     Returns:
+#         ndarray: The roots of the polynomial equation.
+
+#     """
+#     derp = jnp.polyder(coff)
+#     mask = 1 - jnp.eye(roots.shape[0])
+#     # alpha = jnp.abs(coff)*((2*jnp.sqrt(2))*1j+1)
+
+#     def loop_body(carry):
+#         roots, coff, cond, ratio_old, n_iter = carry
+#         # h = jnp.polyval(coff, roots)
+#         # b = jnp.polyval(alpha, jnp.abs(roots))
+#         ratio = jnp.polyval(coff, roots) / jnp.polyval(derp, roots)
+
+#         sum_term = jnp.nansum(mask * 1 / (roots - roots[:, None]), axis=0)
+#         w = ratio / (1 - (ratio * sum_term))
+#         cond = jnp.abs(w) > 2e-14
+#         # cond = jnp.abs(h) > 1e-15*b
+#         roots -= w
+#         return (roots, coff, cond, ratio, n_iter + 1)
+
+#     def cond_fun(carry):
+#         roots, coff, cond, ratio, n_iter = carry
+#         return cond.any() & (n_iter < MAX_ITER)
+
+#     f = lambda x: jnp.polyval(coff, x)
+#     solution = lambda f, x0: lax.while_loop(cond_fun, loop_body, (x0, coff, jnp.ones_like(x0, dtype=bool), x0, 0))[0]
+#     sclar = lambda g, y: jnp.linalg.solve(jax.jacobian(g, holomorphic=True)(y), y)
+
+#     return lax.custom_root(f, roots, solve=solution, tangent_solve=sclar)
