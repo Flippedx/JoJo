@@ -283,7 +283,8 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
         - u_2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
-            Logarithm (base 10) of the stellar density.
+            Logarithm (base 10) of the stellar density assuming circular orbit (Kipping et al. 2012, Dawson & Johnson 2012).
+            The relation with stellar bulk density is rho_circ = rho_bulk*((1+e*sin(omega))/sqrt(1-e^2))^3.
     time_array : array-like
         Array of time points at which to compute the light curve.
     exp_time : float, optional
@@ -369,7 +370,7 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
             Logarithm (base 10) of the stellar density assuming circular orbit (Kipping et al. 2012, Dawson & Johnson 2012).
-            The relation with stellar bulk density is rho_circ = rho_star*((1+e*sin(omega))/sqrt(1-e^2))^3.
+            The relation with stellar bulk density is rho_circ = rho_bulk*((1+e*sin(omega))/sqrt(1-e^2))^3.
     time_array : array-like
         Array of time points at which to compute the light curve.
     exp_time : float, optional
