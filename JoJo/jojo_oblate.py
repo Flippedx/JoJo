@@ -295,6 +295,8 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
     -------
     flux_array : array-like
         Array of flux values corresponding to the input time array.
+    contacts : array-like
+        Array of ingress and egress times.
     """
 
     epsilon = 1e-8 # precision used when calculate the intersection points
@@ -366,7 +368,8 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
         - u_2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
-            Logarithm (base 10) of the stellar density.
+            Logarithm (base 10) of the stellar density assuming circular orbit (Kipping et al. 2012, Dawson & Johnson 2012).
+            The relation with stellar bulk density is rho_circ = rho_star*((1+e*sin(omega))/sqrt(1-e^2))^3.
     time_array : array-like
         Array of time points at which to compute the light curve.
     exp_time : float, optional
@@ -378,6 +381,8 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     --------
     flux_array : array-like
         Array of flux values corresponding to the input time array.
+    contacts : array-like
+        Array of ingress and egress times.
     """
 
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
