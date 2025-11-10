@@ -185,10 +185,6 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
     invalid_points = r2 > 1
     r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
     mu_p = np.sqrt(1-r2)
-    r2 = xp**2 + yp**2
-    invalid_points = r2 > 1
-    r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
-    mu_p = np.sqrt(1-r2)
     integrand = (mu_p*xp + (1-yp**2)*np.arctan(xp/mu_p))*delta_x[None, :]
     delta_flux_numeric = np.sum(integrand, axis=1)*prefac*delta_angle
     ##
@@ -311,8 +307,9 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
         return (flux_array, contacts)
     
     ## find contact points
-    dt_out = np.sqrt((1+np.sqrt(1-f)*rp_eq)**2-b_0**2)/a_over_rstar/(2*np.pi)*period
-    dt_in =  np.sqrt((1-np.sqrt(1-f)*rp_eq)**2-b_0**2)/a_over_rstar/(2*np.pi)*period
+    sini = 1-(b_0/a_over_rstar) ** 2
+    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
     contacts = np.array([t_0-dt_out, t_0-dt_in, t_0+dt_in, t_0+dt_out])
 
     ## handle long exposures
@@ -389,8 +386,9 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
     ## find contact points
-    dt_out = np.sqrt((1+rp_eq)**2-b_0**2)/a_over_rstar/(2*np.pi)*period
-    dt_in =  np.sqrt((1-rp_eq)**2-b_0**2)/a_over_rstar/(2*np.pi)*period
+    sini = 1-(b_0/a_over_rstar) ** 2
+    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
     contacts = np.array([t_0-dt_out, t_0-dt_in, t_0+dt_in, t_0+dt_out])
 
     if exp_time == None:
