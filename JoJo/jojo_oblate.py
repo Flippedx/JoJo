@@ -7,6 +7,35 @@ from ._solve_quartic import multi_quartic#, AE_roots0, Aberth_Ehrlich
 # import jax
 
 
+def intransit_flag(t0, p, dur, time):
+    transit_epoch = t0 + p * np.unique(np.floor((time - t0) / p))
+    flag = np.zeros_like(time, dtype=bool)
+    for te in transit_epoch:
+        flag |= (time >= te-dur/2) & (time <= te+dur/2)
+    return flag
+
+def mean_to_true(m, e, tol=1e-6, max_iter=100):
+    f = np.array([])
+    for mi in m:
+        E = mi
+        for _ in range(max_iter):
+            g = E - e*np.sin(E) - mi
+            dg = 1 - e*np.cos(E)
+            E_new = E - g/dg
+            if np.abs(E_new - E) < tol:
+                break
+            E = E_new
+        fi = 2*np.arctan2(np.sqrt(1+e)*np.sin(E/2), np.sqrt(1-e)*np.cos(E/2))
+        f = np.append(f, fi)
+    # f = m + 2*e*np.sin(m) + 5/4*e**2*np.sin(2*m) + 1/12*e**3*(13*np.sin(3*m) - 3*np.sin(m))
+    return f
+
+def true_to_mean(f, e):
+    # m = f - 2*e*np.sin(f) + 3/4*e**2*np.sin(2*f) - 1/3*e**3*np.sin(3*f)
+    E = 2*np.arctan2(np.sqrt(1 - e)*np.sin(f/2), np.sqrt(1 + e)*np.cos(f/2))
+    m = E - e*np.sin(E)
+    return m
+
 def solve_star_ellipse_intersections(x0, y0, rp_eq, f, epsilon):
     """
     Solve the intersections between a star and an ellipse.
@@ -383,13 +412,14 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
         Array of ingress and egress times.
     """
 
-    t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
+    tc, b, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
     a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
-    ## find contact points
-    sini = 1-(b_0/a_over_rstar) ** 2
-    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    contacts = np.array([t_0-dt_out, t_0-dt_in, t_0+dt_in, t_0+dt_out])
+    sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
+    tp = tc - period/(2*np.pi)*true_to_mean(np.pi/2.-omega, ecc)  # time of periastron passage
+    ## find contact points 
+    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
         exp_time = np.average(np.diff(time_array))
@@ -402,7 +432,12 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     else:
         LONG_EXPOSURE = False
         time_array_supersample = time_array
-    z_array = np.sqrt(b_0**2 + ((time_array_supersample-t_0)/period*2*np.pi*a_over_rstar)**2)
+    ma = 2*np.pi/period*(time_array_supersample - tp)  # mean anomaly
+    ta = mean_to_true(ma, ecc)  # true anomaly
+    z_array = a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.sqrt(1 - np.sin(omega+ta)**2*sini**2)
+    transit_flag = intransit_flag(tc, period, 2.2*dt_out, time_array_supersample)
+    z_array[~transit_flag] = 2 ### avoid eclipse 
+    # z_array = np.sqrt(b**2 + ((time_array_supersample-tc)/period*2*np.pi*a_over_rstar)**2)
     flux_array = occultquad(z_array, u_1, u_2, np.sqrt(1-f)*rp_eq)
     if LONG_EXPOSURE:
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
