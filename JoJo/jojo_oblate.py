@@ -8,26 +8,26 @@ from ._solve_quartic import multi_quartic#, AE_roots0, Aberth_Ehrlich
 
 
 def intransit_flag(t0, p, dur, time):
-    transit_epoch = t0 + p * np.unique(np.floor((time - t0) / p))
-    flag = np.zeros_like(time, dtype=bool)
-    for te in transit_epoch:
-        flag |= (time >= te-dur/2) & (time <= te+dur/2)
+    time_debias = (time-t0) % p
+    time_debias[time_debias>p/2] -= p
+    flag = (time_debias >= -dur/2) & (time_debias <= dur/2)
     return flag
 
 def mean_to_true(m, e, tol=1e-6, max_iter=100):
-    f = np.array([])
-    for mi in m:
-        E = mi
-        for _ in range(max_iter):
-            g = E - e*np.sin(E) - mi
-            dg = 1 - e*np.cos(E)
-            E_new = E - g/dg
-            if np.abs(E_new - E) < tol:
-                break
-            E = E_new
-        fi = 2*np.arctan2(np.sqrt(1+e)*np.sin(E/2), np.sqrt(1-e)*np.cos(E/2))
-        f = np.append(f, fi)
-    # f = m + 2*e*np.sin(m) + 5/4*e**2*np.sin(2*m) + 1/12*e**3*(13*np.sin(3*m) - 3*np.sin(m))
+    m = np.array(m)
+    if e == 0:
+        return m
+
+    E = m # + e * np.sin(m) + 0.5 * e**2 * np.sin(2 * m)
+    for _ in range(max_iter):
+        f_val = E - e * np.sin(E) - m
+        df = 1 - e * np.cos(E)
+        delta = f_val / df
+        E_new = E - delta
+        if np.all(np.abs(delta) < tol):
+            break
+        E = E_new
+    f = 2 * np.arctan2(np.sqrt(1 + e) * np.sin(E / 2), np.sqrt(1 - e) * np.cos(E / 2))
     return f
 
 def true_to_mean(f, e):
@@ -283,7 +283,7 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
     delta_flux = delta_flux_limb + delta_flux_analytic + delta_flux_numeric
     return delta_flux
 
-def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=5, n_step=100):
+def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5, n_step=100):
     """
     Compute the lightcurve at given time array (time_array) due to an oblate planet.
 
@@ -291,9 +291,9 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
     ----------
     transit_parameters : array-like
         Array containing the transit parameters:
-        - t_0 : float
+        - tc : float
             Time of the transit center.
-        - b_0 : float
+        - b : float
             Impact parameter.
         - period : float
             Orbital period of the planet.
@@ -303,19 +303,26 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
             Oblateness of the planet.
         - obliquity : float
             Obliquity of the planet.
+        - ecc : float
+            Eccentricity of the planet's orbit.
+        - omega : float
+            Argument of periastron.
         - u_1 : float
             Quadratic limb-darkening coefficient.
         - u_2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
-            Logarithm (base 10) of the stellar density assuming circular orbit (Kipping et al. 2012, Dawson & Johnson 2012).
-            The relation with stellar bulk density is rho_circ = rho_bulk*((1+e*sin(omega))/sqrt(1-e^2))^3.
+            Logarithm (base 10) of the stellar density.
     time_array : array-like
         Array of time points at which to compute the light curve.
+    photo_ecc : bool
+        Whether to use the photoeccentric effect. Default is False.
     exp_time : float, optional
         Exposure time for each observation. If None, it is set to the average difference between consecutive time points in time_array. Default is None.
     supersample_factor : int, optional
         Factor by which to supersample the time array for long exposures. Default is 5.
+    n_step : int, optional
+        Number of steps for numerical integration. Default is 100.
 
     Returns
     -------
@@ -326,20 +333,24 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
     """
 
     epsilon = 1e-8 # precision used when calculate the intersection points
-    t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star = transit_parameters
-    a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
+    tc, b, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
+    if photo_ecc:
+        rho_circ = 10**log10_rho_star*((1+ecc*np.sin(omega))/np.sqrt(1-ecc**2))**3
+        a_over_rstar = 3.753*(period**2*rho_circ)**(1./3.)
+        sini = np.sqrt(1 - (b / a_over_rstar)**2)
+    else:
+        a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
+        sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
+    ## find contact points 
+    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
-        exp_time = np.average(np.diff(time_array))
+        exp_time = np.median(np.diff(time_array))
     if f*rp_eq**2 < 1e-6: # if expected oblate signal too small, use spherical transit instead
-        flux_array, contacts = spherical_lc(transit_parameters, time_array, exp_time=exp_time, supersample_factor=supersample_factor)
+        flux_array, contacts = spherical_lc(transit_parameters, time_array, photo_ecc=photo_ecc, exp_time=exp_time, supersample_factor=supersample_factor)
         return (flux_array, contacts)
-    
-    ## find contact points
-    sini = 1-(b_0/a_over_rstar) ** 2
-    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b_0**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    contacts = np.array([t_0-dt_out, t_0-dt_in, t_0+dt_in, t_0+dt_out])
 
     ## handle long exposures
     if exp_time>=0.003: #if exposure>5min, use supersample_factor
@@ -350,8 +361,19 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
     else:
         LONG_EXPOSURE = False
         time_array_supersample = time_array
-    x0_ini = (time_array_supersample-t_0)/period*2*np.pi*a_over_rstar # assuming long-period; should be slight different if short P
-    y0_ini = np.ones_like(x0_ini, dtype=float)*b_0
+
+    if photo_ecc:
+        time_debias = (time_array_supersample - tc) % period
+        time_debias[time_debias > period/2] -= period
+        x0_ini = time_debias/period*2*np.pi*a_over_rstar # assuming long-period; should be slight different if short P
+        y0_ini = np.ones_like(x0_ini, dtype=float)*b
+    else:
+        tp = tc - period/(2*np.pi)*true_to_mean(np.pi/2.-omega, ecc)  # time of periastron passage
+        ma = 2*np.pi/period*(time_array_supersample - tp)  # mean anomaly
+        ta = mean_to_true(ma, ecc)  # true anomaly
+        x0_ini = -a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.cos(omega+ta)
+        # y0_ini = (1 + ecc*np.cos(omega))/(1 + ecc*np.cos(ta))*np.sin(omega+ta)*b
+        y0_ini = np.ones_like(x0_ini, dtype=float)*b
     x0 = x0_ini*np.cos(obliquity) + y0_ini*np.sin(obliquity)
     y0 =-x0_ini*np.sin(obliquity) + y0_ini*np.cos(obliquity)
     x0[x0<0] *= -1
@@ -370,7 +392,7 @@ def oblate_lc(transit_parameters, time_array, exp_time=None, supersample_factor=
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
     return (flux_array, contacts)
 
-def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_factor=5):
+def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5):
     """
     Compute the lightcurve at given time array (time_array) due to a spherical planet which has the same projection with the given oblate planet.
 
@@ -378,9 +400,9 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     -----------
     transit_parameters : array-like
         Array containing the transit parameters:
-        - t_0 : float
+        - tc : float
             Time of the transit center.
-        - b_0 : float
+        - b : float
             Impact parameter.
         - period : float
             Orbital period of the planet.
@@ -390,15 +412,20 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
             Oblateness of the planet.
         - obliquity : float
             Obliquity of the planet.
+        - ecc : float
+            Eccentricity of the planet's orbit.
+        - omega : float
+            Argument of periastron.
         - u_1 : float
             Quadratic limb-darkening coefficient.
         - u_2 : float
             Quadratic limb-darkening coefficient.
         - log10_rho_star : float
-            Logarithm (base 10) of the stellar density assuming circular orbit (Kipping et al. 2012, Dawson & Johnson 2012).
-            The relation with stellar bulk density is rho_circ = rho_bulk*((1+e*sin(omega))/sqrt(1-e^2))^3.
+            Logarithm (base 10) of the stellar density.
     time_array : array-like
         Array of time points at which to compute the light curve.
+    photo_ecc : bool
+        Whether to use the photoeccentric effect. Default is False.
     exp_time : float, optional
         Exposure time for each observation. If None, it is set to the average difference between consecutive time points in time_array. Default is None.
     supersample_factor : int, optional
@@ -413,16 +440,20 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     """
 
     tc, b, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
-    a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
-    sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
-    tp = tc - period/(2*np.pi)*true_to_mean(np.pi/2.-omega, ecc)  # time of periastron passage
+    if photo_ecc:
+        rho_circ = 10**log10_rho_star*((1+ecc*np.sin(omega))/np.sqrt(1-ecc**2))**3
+        a_over_rstar = 3.753*(period**2*rho_circ)**(1./3.)
+        sini = np.sqrt(1 - (b / a_over_rstar)**2)
+    else:
+        a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
+        sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
     ## find contact points 
     dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
     dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
     contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
-        exp_time = np.average(np.diff(time_array))
+        exp_time = np.median(np.diff(time_array)) ## TO BE UPDATED
     ## handle long exposures
     if exp_time>=0.003: #if exposure>5min, use supersample_factor
         LONG_EXPOSURE = True
@@ -432,12 +463,17 @@ def spherical_lc(transit_parameters, time_array, exp_time=None, supersample_fact
     else:
         LONG_EXPOSURE = False
         time_array_supersample = time_array
-    ma = 2*np.pi/period*(time_array_supersample - tp)  # mean anomaly
-    ta = mean_to_true(ma, ecc)  # true anomaly
-    z_array = a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.sqrt(1 - np.sin(omega+ta)**2*sini**2)
-    transit_flag = intransit_flag(tc, period, 2.2*dt_out, time_array_supersample)
-    z_array[~transit_flag] = 2 ### avoid eclipse 
-    # z_array = np.sqrt(b**2 + ((time_array_supersample-tc)/period*2*np.pi*a_over_rstar)**2)
+    if photo_ecc:
+        time_debias = (time_array_supersample - tc) % period
+        time_debias[time_debias > period/2] -= period
+        z_array = np.sqrt(b**2 + (time_debias/period*2*np.pi*a_over_rstar)**2)
+    else:
+        tp = tc - period/(2*np.pi)*true_to_mean(np.pi/2.-omega, ecc)  # time of periastron passage
+        ma = 2*np.pi/period*(time_array_supersample - tp)  # mean anomaly
+        ta = mean_to_true(ma, ecc)  # true anomaly
+        z_array = a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.sqrt(1 - np.sin(omega+ta)**2*sini**2)
+        transit_flag = intransit_flag(tc, period, 2.2*dt_out, time_array_supersample)
+        z_array[~transit_flag] = 2 ### avoid eclipse 
     flux_array = occultquad(z_array, u_1, u_2, np.sqrt(1-f)*rp_eq)
     if LONG_EXPOSURE:
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
