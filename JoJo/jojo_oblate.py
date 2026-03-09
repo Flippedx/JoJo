@@ -372,8 +372,8 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
         ma = 2*np.pi/period*(time_array_supersample - tp)  # mean anomaly
         ta = mean_to_true(ma, ecc)  # true anomaly
         x0_ini = -a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.cos(omega+ta)
-        # y0_ini = (1 + ecc*np.cos(omega))/(1 + ecc*np.cos(ta))*np.sin(omega+ta)*b
-        y0_ini = np.ones_like(x0_ini, dtype=float)*b
+        y0_ini = (1 + ecc*np.sin(omega))/(1 + ecc*np.cos(ta))*np.sin(omega+ta)*b
+        # y0_ini = np.ones_like(x0_ini, dtype=float)*b
     x0 = x0_ini*np.cos(obliquity) + y0_ini*np.sin(obliquity)
     y0 =-x0_ini*np.sin(obliquity) + y0_ini*np.cos(obliquity)
     x0[x0<0] *= -1
