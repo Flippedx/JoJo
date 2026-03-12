@@ -302,11 +302,11 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
         - f : float
             Oblateness of the planet.
         - obliquity : float
-            Obliquity of the planet.
+            Obliquity of the planet (in radians).
         - ecc : float
             Eccentricity of the planet's orbit.
         - omega : float
-            Argument of periastron.
+            Argument of periastron (in radians).
         - u_1 : float
             Quadratic limb-darkening coefficient.
         - u_2 : float
@@ -415,7 +415,7 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
         - ecc : float
             Eccentricity of the planet's orbit.
         - omega : float
-            Argument of periastron.
+            Argument of periastron (in radians).
         - u_1 : float
             Quadratic limb-darkening coefficient.
         - u_2 : float
