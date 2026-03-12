@@ -1,5 +1,5 @@
 import numpy as np
-from .jojo_oblate import oblate_lc, spherical_lc, full_occultation, solve_star_ellipse_intersections
+from .jojo_oblate import oblate_lc, spherical_lc, full_occultation, solve_star_ellipse_intersections, mean_to_true, true_to_mean
 
 def solve_planet_ring_intersections(x_0, y_0, r_p, r_rin, r_rout, f_r):
     '''Solve the intersections between a planet and a ring.'''
@@ -268,7 +268,7 @@ def ring_integral_planet_part(x_sp, y_sp, x_pri, y_pri, x_pro, y_pro, x0, y0, r_
     planet_part_integral = ellipse_integral(x_bound, y_bound, x0, y0, r_p, r_p, u1, u2, n_step)
     return -planet_part_integral
 
-def ring_lc(transit_parameters, time_array, n_step=300):
+def ring_lc(transit_parameters, time_array, photo_ecc=False, n_step=300):
     """
     Compute the trensit light curve of a spherical planet with a ring.
 
@@ -276,9 +276,9 @@ def ring_lc(transit_parameters, time_array, n_step=300):
     -----------
     transit_parameters : list
         A list of parameters for the model:
-        - t_0 : float
+        - tc : float
             Time of the transit center.
-        - b_0 : float
+        - b : float
             Impact parameter.
         - period : float
             Orbital period of the planet.
@@ -291,7 +291,11 @@ def ring_lc(transit_parameters, time_array, n_step=300):
         - f_r : float
             Flattening factor of the ring.
         - obliquity : float
-            Obliquity of the ring.
+            Obliquity of the ring (in radians).
+        - ecc : float
+            Eccentricity of the planet's orbit.
+        - omega : float
+            Argument of periastron (in radians).
         - u1 : float
             Linear limb-darkening coefficient.
         - u2 : float
@@ -302,6 +306,8 @@ def ring_lc(transit_parameters, time_array, n_step=300):
             Opacity of the ring.
     time_array : array_like
         Array of time points at which to compute the light curve.
+    photo_ecc : bool
+        Whether to use the photoeccentric effect. Default is False.
     n_step : int, optional
         Number of steps for numerical integration (default is 300).
     
@@ -311,23 +317,34 @@ def ring_lc(transit_parameters, time_array, n_step=300):
         Array of flux values corresponding to the input time points.
     """
 
-    t_0, b_0, period, r_p, r_in, r_out, f_r, obliquity, u1, u2, log10_rho_star, opacity = transit_parameters
+    tc, b, period, r_p, r_in, r_out, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star, opacity = transit_parameters
     if r_in > r_out:
         raise IOError('The radius of the inner ring should be smaller than the outer ring')
     if r_in < r_p:
         raise IOError('The radius of the planet should not be larger than the inner ring')
     
-    a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
-    x0_ini = (time_array-t_0)/period*2*np.pi*a_over_rstar
-    y0_ini = np.ones_like(x0_ini, dtype=float)*b_0
+    if photo_ecc:
+        rho_circ = 10**log10_rho_star*((1+ecc*np.sin(omega))/np.sqrt(1-ecc**2))**3
+        a_over_rstar = 3.753*(period**2*rho_circ)**(1./3.)
+        time_debias = (time_array - tc) % period
+        time_debias[time_debias > period/2] -= period
+        x0_ini = time_debias/period*2*np.pi*a_over_rstar # assuming long-period; should be slight different if short P
+        y0_ini = np.ones_like(x0_ini, dtype=float)*b
+    else:
+        a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
+        tp = tc - period/(2*np.pi)*true_to_mean(np.pi/2.-omega, ecc)  # time of periastron passage
+        ma = 2*np.pi/period*(time_array - tp)  # mean anomaly
+        ta = mean_to_true(ma, ecc)  # true anomaly
+        x0_ini = -a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.cos(omega+ta)
+        y0_ini = (1 + ecc*np.sin(omega))/(1 + ecc*np.cos(ta))*np.sin(omega+ta)*b
     x0 = x0_ini*np.cos(obliquity) + y0_ini*np.sin(obliquity)
     y0 =-x0_ini*np.sin(obliquity) + y0_ini*np.cos(obliquity)
     x0[x0<0] *= -1
     y0[y0<0] *= -1
 
-    pars_in = [t_0, b_0, period, r_in, f_r, obliquity, u1, u2, log10_rho_star]
-    pars_out = [t_0, b_0, period, r_out, f_r, obliquity, u1, u2, log10_rho_star]
-    pars_p = [t_0, b_0, period, r_p, 0, 0, u1, u2, log10_rho_star]
+    pars_in = [tc, b, period, r_in, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
+    pars_out = [tc, b, period, r_out, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
+    pars_p = [tc, b, period, r_p, 0, 0, ecc, omega, u1, u2, log10_rho_star]
 
     planet_part, contacts_p = spherical_lc(pars_p, time_array)
     planet_part = 1 - planet_part
