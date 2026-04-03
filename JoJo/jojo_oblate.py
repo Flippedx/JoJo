@@ -13,7 +13,7 @@ def intransit_flag(t0, p, dur, time):
     flag = (time_debias >= -dur/2) & (time_debias <= dur/2)
     return flag
 
-def mean_to_true(m, e, tol=1e-6, max_iter=100):
+def mean_to_true(m, e, tol=1e-7, max_iter=100):
     m = np.array(m)
     if e == 0:
         return m
@@ -211,8 +211,7 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
     xp = x0[:, None] + delta_x
     yp = y0[:, None] + delta_y
     r2 = xp**2 + yp**2
-    invalid_points = r2 > 1
-    r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
+    r2 = np.where(r2 >= 1, 1 - 1e-10, r2)
     mu_p = np.sqrt(1-r2)
     integrand = (mu_p*xp + (1-yp**2)*np.arctan(xp/mu_p))*delta_x[None, :]
     delta_flux_numeric = np.sum(integrand, axis=1)*prefac*delta_angle
@@ -270,12 +269,7 @@ def partial_occultation(flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, 
     xp = x0[:, None] + rp_eq*np.cos(angle)
     yp = y0[:, None] + rp_eq*np.sin(angle)*(1-f)
     r2 = xp**2 + yp**2
-    invalid_points = r2 > 1
-    r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
-    mu_p = np.sqrt(1-r2)
-    r2 = xp**2 + yp**2
-    invalid_points = r2 > 1
-    r2[invalid_points] = 1 - 1e-10  # Avoid insufficiently precise intersections in the case of tangency 
+    r2 = np.where(r2 >= 1, 1 - 1e-10, r2)
     mu_p = np.sqrt(1-r2)
     integrand = (mu_p*xp + (1-yp**2)*(np.arctan(xp/mu_p)-np.pi/2.)) * (xp-x0[:, None]) # add the pi/2 term to increase the integral precision
     delta_flux_numeric = np.sum(integrand, axis=1)*delta_angles*prefac
@@ -297,8 +291,8 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
             Impact parameter.
         - period : float
             Orbital period of the planet.
-        - rp_eq : float
-            Equatorial radius of the planet.
+        - rp_me : float
+            Mean radius of the planet, rp_me = rp_eq * sqrt(1-f)
         - f : float
             Oblateness of the planet.
         - obliquity : float
@@ -333,18 +327,19 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
     """
 
     epsilon = 1e-8 # precision used when calculate the intersection points
-    tc, b, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
+    tc, b, period, rp_me, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
+    rp_eq = rp_me/np.sqrt(1-f)
     if photo_ecc:
         rho_circ = 10**log10_rho_star*((1+ecc*np.sin(omega))/np.sqrt(1-ecc**2))**3
         a_over_rstar = 3.753*(period**2*rho_circ)**(1./3.)
-        sini = np.sqrt(1 - (b / a_over_rstar)**2)
+        # sini = np.sqrt(1 - (b / a_over_rstar)**2)
     else:
         a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
-        sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
-    ## find contact points 
-    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
+        # sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
+    ## find contact points: rough estimation
+    # dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    # dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    # contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
         exp_time = np.median(np.diff(time_array))
@@ -386,10 +381,24 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
     delta_flux[INTERSECT] = partial_occultation(flags[INTERSECT], alphas[INTERSECT], x_intersect[INTERSECT], y_intersect[INTERSECT], x0[INTERSECT], y0[INTERSECT], rp_eq, f, u_1, u_2, n_step)
     FULL = flags==1
     delta_flux[FULL] = full_occultation(flags[FULL], x0[FULL], y0[FULL], rp_eq, f, u_1, u_2)
-    flux_array = 1-delta_flux/flux_total
-    
+    flux_array = 1 - delta_flux/flux_total
     if LONG_EXPOSURE:
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
+
+    trans_o_to_i = np.where((flags[:-1] == -1) & (flags[1:] == 0))[0]
+    trans_i_to_f = np.where((flags[:-1] == 0) & (flags[1:] == 1))[0]
+    trans_f_to_e = np.where((flags[:-1] == 1) & (flags[1:] == 0))[0]
+    trans_e_to_o = np.where((flags[:-1] == 0) & (flags[1:] == -1))[0]
+
+    if (len(trans_i_to_f) > 0 and len(trans_f_to_e) > 0):
+        contacts = np.array([
+            time_array_supersample[trans_o_to_i[0]],
+            time_array_supersample[trans_i_to_f[0]],
+            time_array_supersample[trans_f_to_e[0]],
+            time_array_supersample[trans_e_to_o[0]]
+        ])
+    else:
+        contacts = np.array([time_array_supersample[trans_e_to_o[0]], time_array_supersample[trans_o_to_i[0]]]) # For grazing transit without full transit
     return (flux_array, contacts)
 
 def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5):
@@ -406,8 +415,8 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
             Impact parameter.
         - period : float
             Orbital period of the planet.
-        - rp_eq : float
-            Equatorial radius of the planet.
+        - rp_me : float
+            Mean radius of the planet, rp_me = rp_eq * sqrt(1-f)
         - f : float
             Oblateness of the planet.
         - obliquity : float
@@ -439,7 +448,7 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
         Array of ingress and egress times.
     """
 
-    tc, b, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
+    tc, b, period, rp_me, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star = transit_parameters
     if photo_ecc:
         rho_circ = 10**log10_rho_star*((1+ecc*np.sin(omega))/np.sqrt(1-ecc**2))**3
         a_over_rstar = 3.753*(period**2*rho_circ)**(1./3.)
@@ -447,10 +456,10 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
     else:
         a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
         sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
-    ## find contact points 
-    dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
+    ## find contact points: rough estimation
+    dt_out = np.arcsin(np.sqrt(((1+rp_me)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    dt_in =  np.arcsin(np.sqrt(((1-rp_me)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    # contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
         exp_time = np.median(np.diff(time_array)) ## TO BE UPDATED
@@ -474,9 +483,24 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
         z_array = a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.sqrt(1 - np.sin(omega+ta)**2*sini**2)
         transit_flag = intransit_flag(tc, period, 2.2*dt_out, time_array_supersample)
         z_array[~transit_flag] = 2 ### avoid eclipse 
-    flux_array = occultquad(z_array, u_1, u_2, np.sqrt(1-f)*rp_eq)
+    flux_array = occultquad(z_array, u_1, u_2, rp_me)
     if LONG_EXPOSURE:
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
+    
+    trans_o_to_i = np.where((z_array[:-1] >= 1+rp_me) & (z_array[1:] < 1+rp_me))[0]
+    trans_i_to_f = np.where((z_array[:-1] >= 1-rp_me) & (z_array[1:] < 1-rp_me))[0]
+    trans_f_to_e = np.where((z_array[:-1] <= 1-rp_me) & (z_array[1:] > 1-rp_me))[0]
+    trans_e_to_o = np.where((z_array[:-1] <= 1+rp_me) & (z_array[1:] > 1+rp_me))[0]
+
+    if (len(trans_i_to_f) > 0 and len(trans_f_to_e) > 0):
+        contacts = np.array([
+            time_array_supersample[trans_o_to_i[0]],
+            time_array_supersample[trans_i_to_f[0]],
+            time_array_supersample[trans_f_to_e[0]],
+            time_array_supersample[trans_e_to_o[0]]
+        ])
+    else:
+        contacts = np.array([time_array_supersample[trans_e_to_o[0]], time_array_supersample[trans_o_to_i[0]]]) # For grazing transit without full transit
     return (flux_array, contacts)
 
 def test_zhu2014():
