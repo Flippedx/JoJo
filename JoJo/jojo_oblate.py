@@ -336,10 +336,6 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
     else:
         a_over_rstar = 3.753*(period**2*10**log10_rho_star)**(1./3.)
         # sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
-    ## find contact points: rough estimation
-    # dt_out = np.arcsin(np.sqrt(((1+np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    # dt_in =  np.arcsin(np.sqrt(((1-np.sqrt(1-f)*rp_eq)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    # contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
         exp_time = np.median(np.diff(time_array))
@@ -458,7 +454,7 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
         sini = np.sqrt(1 - (b / a_over_rstar / (1 - ecc**2) * (1 + ecc * np.sin(omega)))**2)
     ## find contact points: rough estimation
     dt_out = np.arcsin(np.sqrt(((1+rp_me)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
-    dt_in =  np.arcsin(np.sqrt(((1-rp_me)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
+    # dt_in =  np.arcsin(np.sqrt(((1-rp_me)**2-b**2)/sini)/a_over_rstar)/(2*np.pi)*period
     # contacts = np.array([tc-dt_out, tc-dt_in, tc+dt_in, tc+dt_out])
 
     if exp_time == None:
@@ -482,7 +478,7 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
         ta = mean_to_true(ma, ecc)  # true anomaly
         z_array = a_over_rstar*(1 - ecc**2)/(1 + ecc*np.cos(ta))*np.sqrt(1 - np.sin(omega+ta)**2*sini**2)
         transit_flag = intransit_flag(tc, period, 2.2*dt_out, time_array_supersample)
-        z_array[~transit_flag] = 2 ### avoid eclipse 
+        z_array[~transit_flag] = 2 ### avoid eclipse
     flux_array = occultquad(z_array, u_1, u_2, rp_me)
     if LONG_EXPOSURE:
         flux_array = np.mean(flux_array.reshape((-1, supersample_factor)), axis=1)
