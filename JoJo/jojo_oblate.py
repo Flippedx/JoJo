@@ -385,16 +385,10 @@ def oblate_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, su
     trans_i_to_f = np.where((flags[:-1] == 0) & (flags[1:] == 1))[0]
     trans_f_to_e = np.where((flags[:-1] == 1) & (flags[1:] == 0))[0]
     trans_e_to_o = np.where((flags[:-1] == 0) & (flags[1:] == -1))[0]
-
-    if (len(trans_i_to_f) > 0 and len(trans_f_to_e) > 0):
-        contacts = np.array([
-            time_array_supersample[trans_o_to_i[0]],
-            time_array_supersample[trans_i_to_f[0]],
-            time_array_supersample[trans_f_to_e[0]],
-            time_array_supersample[trans_e_to_o[0]]
-        ])
-    else:
-        contacts = np.array([time_array_supersample[trans_e_to_o[0]], time_array_supersample[trans_o_to_i[0]]]) # For grazing transit without full transit
+    contacts = []
+    for tc in [trans_o_to_i, trans_i_to_f, trans_f_to_e, trans_e_to_o]:
+        if len(tc) > 0:
+            contacts.append(time_array_supersample[tc[0]])
     return (flux_array, contacts)
 
 def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5):
@@ -487,16 +481,10 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
     trans_i_to_f = np.where((z_array[:-1] >= 1-rp_me) & (z_array[1:] < 1-rp_me))[0]
     trans_f_to_e = np.where((z_array[:-1] <= 1-rp_me) & (z_array[1:] > 1-rp_me))[0]
     trans_e_to_o = np.where((z_array[:-1] <= 1+rp_me) & (z_array[1:] > 1+rp_me))[0]
-
-    if (len(trans_i_to_f) > 0 and len(trans_f_to_e) > 0):
-        contacts = np.array([
-            time_array_supersample[trans_o_to_i[0]],
-            time_array_supersample[trans_i_to_f[0]],
-            time_array_supersample[trans_f_to_e[0]],
-            time_array_supersample[trans_e_to_o[0]]
-        ])
-    else:
-        contacts = np.array([time_array_supersample[trans_e_to_o[0]], time_array_supersample[trans_o_to_i[0]]]) # For grazing transit without full transit
+    contacts = []
+    for tc in [trans_o_to_i, trans_i_to_f, trans_f_to_e, trans_e_to_o]:
+        if len(tc) > 0:
+            contacts.append(time_array_supersample[tc[0]])
     return (flux_array, contacts)
 
 def test_zhu2014():
