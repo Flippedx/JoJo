@@ -1,8 +1,6 @@
 import numpy as np
-import matplotlib.pyplot as plt
 from ._occultquad import occultquad
-import time
-from ._solve_quartic import multi_quartic#, AE_roots0, Aberth_Ehrlich
+from ._solve_quartic import multi_quartic
 # import jax.numpy as jnp
 # import jax
 
@@ -82,65 +80,32 @@ def solve_star_ellipse_intersections(x0, y0, rp_eq, f, epsilon):
     y_intersect = np.full((n_points, 4), np.nan)
     b2 = (1-f)**2
     r2 = rp_eq**2
-    coeffs = np.zeros((n_points, 5))*0j
-    # coeffs = coeffs.at[:, 0].set(1-b2)
-    # coeffs = coeffs.at[:, 1].set(4*b2*x0 - 4j*y0)
-    # coeffs = coeffs.at[:, 2].set(-2*(1+b2-2*b2*r2+2*b2*x0**2+2*y0**2))
-    # coeffs = coeffs.at[:, 3].set(4*b2*x0 + 4j*y0)
-    # coeffs = coeffs.at[:, 4].set(1-b2)
-    # roots_solver = lambda x: Aberth_Ehrlich(x, AE_roots0(x))
-    # zs = jax.vmap(roots_solver, in_axes=(0))(coeffs)
-    coeffs[:, 0] = 1-b2
-    coeffs[:, 1] = 4*b2*x0 - 4j*y0
-    coeffs[:, 2] =-2*(1+b2-2*b2*r2+2*b2*x0**2+2*y0**2)
-    coeffs[:, 3] = 4*b2*x0 + 4j*y0
-    coeffs[:, 4] = 1-b2
-    zs = multi_quartic(coeffs[:, 0], coeffs[:, 1], coeffs[:, 2], coeffs[:, 3], coeffs[:, 4])
-    
-    # Filter out roots corresponding to the wrong intersection
     intersect_indices = np.where(flags == 0)[0]
-    z = zs[intersect_indices]
+    if len(intersect_indices) == 0:
+        return (flags, x_intersect, y_intersect, alphas)
 
-    # Polish the roots using Newton-Raphson with improved numerical stability
-    z_polish = z.copy()
+    xi = x0[intersect_indices]
+    yi = y0[intersect_indices]
+    c0 = np.full_like(xi, 1-b2, dtype=complex)
+    c1 = 4*b2*xi - 4j*yi
+    c2 = -2*(1+b2-2*b2*r2+2*b2*xi**2+2*yi**2)
+    c3 = 4*b2*xi + 4j*yi
+    c4 = c0
+    z_polish = multi_quartic(c0, c1, c2, c3, c4)
+
     max_iter = 10  # usually enough iterations
     for _ in range(max_iter):
         z = z_polish
-        f = (1-b2)*z**4 + (4*b2*x0[intersect_indices, None] - 4j*y0[intersect_indices, None])*z**3 + \
-            (-2*(1+b2-2*b2*r2+2*b2*x0[intersect_indices, None]**2+2*y0[intersect_indices, None]**2))*z**2 + \
-            (4*b2*x0[intersect_indices, None] + 4j*y0[intersect_indices, None])*z + (1-b2)
-        df = 4*(1-b2)*z**3 + 3*(4*b2*x0[intersect_indices, None] - 4j*y0[intersect_indices, None])*z**2 + \
-            2*(-2*(1+b2-2*b2*r2+2*b2*x0[intersect_indices, None]**2+2*y0[intersect_indices, None]**2))*z + \
-            (4*b2*x0[intersect_indices, None] + 4j*y0[intersect_indices, None])
+        fz = c0[:, None]*z**4 + c1[:, None]*z**3 + c2[:, None]*z**2 + c3[:, None]*z + c4[:, None]
+        df = 4*c0[:, None]*z**3 + 3*c1[:, None]*z**2 + 2*c2[:, None]*z + c3[:, None]
         mask = np.abs(df) > 1e-15
-        delta = np.where(mask, f/df, 0)
+        delta = np.where(mask, fz/df, 0)
         z_polish = np.where(mask, z_polish - delta, z_polish)
         if np.all(np.abs(delta) < epsilon):
             break
 
     xp, yp = np.real(z_polish), np.imag(z_polish)
-    dist_squared = (xp - x0[intersect_indices, None])**2 + (yp - y0[intersect_indices, None])**2 / b2
-    good = np.abs(dist_squared - r2) < epsilon
-    z_good = np.where(good, z_polish, np.nan)
-    # Polish the roots using Newton-Raphson with improved numerical stability
-    z_polish = z.copy()
-    max_iter = 10  # usually enough iterations
-    for _ in range(max_iter):
-        z = z_polish
-        f = (1-b2)*z**4 + (4*b2*x0[intersect_indices, None] - 4j*y0[intersect_indices, None])*z**3 + \
-            (-2*(1+b2-2*b2*r2+2*b2*x0[intersect_indices, None]**2+2*y0[intersect_indices, None]**2))*z**2 + \
-            (4*b2*x0[intersect_indices, None] + 4j*y0[intersect_indices, None])*z + (1-b2)
-        df = 4*(1-b2)*z**3 + 3*(4*b2*x0[intersect_indices, None] - 4j*y0[intersect_indices, None])*z**2 + \
-            2*(-2*(1+b2-2*b2*r2+2*b2*x0[intersect_indices, None]**2+2*y0[intersect_indices, None]**2))*z + \
-            (4*b2*x0[intersect_indices, None] + 4j*y0[intersect_indices, None])
-        mask = np.abs(df) > 1e-15
-        delta = np.where(mask, f/df, 0)
-        z_polish = np.where(mask, z_polish - delta, z_polish)
-        if np.all(np.abs(delta) < epsilon):
-            break
-
-    xp, yp = np.real(z_polish), np.imag(z_polish)
-    dist_squared = (xp - x0[intersect_indices, None])**2 + (yp - y0[intersect_indices, None])**2 / b2
+    dist_squared = (xp - xi[:, None])**2 + (yp - yi[:, None])**2 / b2
     good = np.abs(dist_squared - r2) < epsilon
     z_good = np.where(good, z_polish, np.nan)
 
@@ -188,6 +153,7 @@ def solve_star_ellipse_intersections(x0, y0, rp_eq, f, epsilon):
     #     y_intersect[i, :len(z)] = np.imag(z)
     return (flags, x_intersect, y_intersect, alphas)
 
+
 def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
     """
     Calculate the flux decrement in the full occultation duration.
@@ -195,9 +161,7 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2):
     if len(flags) == 0:
         return np.zeros_like(x0, dtype=float)
     a2 = rp_eq**2
-    a2 = rp_eq**2
     d2 = x0**2 + y0**2
-    delta_flux_analytic = np.pi*(1-f)*a2*(1-u1-2*u2+u2/4.*((2-2*f+f**2)*a2+4*d2))
     delta_flux_analytic = np.pi*(1-f)*a2*(1-u1-2*u2+u2/4.*((2-2*f+f**2)*a2+4*d2))
     delta_flux_numeric = np.zeros_like(x0, dtype=float)
     ##
@@ -489,12 +453,15 @@ def spherical_lc(transit_parameters, time_array, photo_ecc=False, exp_time=None,
 
 def test_zhu2014():
     ''' test the program with the Zhu et al. (2014) Figure 1 blue curve. '''
+    import matplotlib.pyplot as plt
+
     t_0, b_0, period = 0., 0., 100. # period in days
     rp_eq, f, obliquity = 0.1, 0.1, 0.
+    ecc, omega = 0., np.pi/2.
     u_1, u_2 = 0.4, 0.26
     log10_rho_star = 0.5 # rho-star in g/cc
     exp_time = 0.001 # short-cadence
-    transit_parameters = np.array([t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star])
+    transit_parameters = np.array([t_0, b_0, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star])
     time_array = np.linspace(t_0-5/24., t_0+5/24., 1000)
     flux_oblate, time_contacts = oblate_lc(transit_parameters, time_array, exp_time=exp_time)
     flux_spherical, time_contacts = spherical_lc(transit_parameters, time_array, exp_time=exp_time)
@@ -515,13 +482,16 @@ def test_zhu2014():
 
 def test_kepler167():
     ''' test the program with Kepler-167e system. '''
+    import time
+
     ## below are the parameter values for Kepler-167e ##
     t_0, b_0, period = 253.28699, 0.233, 1071.23228 # period in days
     rp_eq, f, obliquity = 0.128, 0.1, 0.
+    ecc, omega = 0.06, np.pi/2.
     u_1, u_2 = 0.63, 0.14
     log10_rho_star = 0.460 # rho_star in unit g/cc
     # exp_time = 0.02 # 30-min cadence
-    transit_parameters = np.array([t_0, b_0, period, rp_eq, f, obliquity, u_1, u_2, log10_rho_star])
+    transit_parameters = np.array([t_0, b_0, period, rp_eq, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star])
     time_array = np.linspace(t_0-12/24., t_0+12/24., 10000)
 
 #    ## test speed ##
