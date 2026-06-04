@@ -1,8 +1,6 @@
 import numpy as np
 from ._occultquad import occultquad
 from ._solve_quartic import multi_quartic
-# import jax.numpy as jnp
-# import jax
 
 
 def intransit_flag(t0, p, dur, time):
