@@ -249,7 +249,7 @@ def occultquad(z,u1,u2,p0):
         ## if there are still unused elements, there's a bug in the code
         ## (please report it)
         notused5 = where(z[notusedyet] > (1.-p))
-        if notused5[0] != 0:
+        if size(notused5[0]) != 0:
             print("ERROR: the following values of z didn't fit into a case:")
             return [-1,-1]
 

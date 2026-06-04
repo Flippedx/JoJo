@@ -346,28 +346,27 @@ def ring_lc(transit_parameters, time_array, photo_ecc=False, n_step=300):
     pars_out = [tc, b, period, r_out, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
     pars_p = [tc, b, period, r_p, 0, 0, ecc, omega, u1, u2, log10_rho_star]
 
-    planet_part, contacts_p = spherical_lc(pars_p, time_array)
+    planet_part, contacts_p = spherical_lc(pars_p, time_array, photo_ecc=photo_ecc)
     planet_part = 1 - planet_part
-
-    flags_sp, x_sp, y_sp, alphas_sp = solve_star_ellipse_intersections(x0, y0, r_p, 0., 1e-8)
-    flags_sri, x_sri, y_sri, alphas_sri = solve_star_ellipse_intersections(x0, y0, r_in, f_r, 1e-8)
-    flags_sro, x_sro, y_sro, alphas_sro = solve_star_ellipse_intersections(x0, y0, r_out, f_r, 1e-8)
     
     flux_total = np.pi*(6-2*u1-u2)/6.
 
     # planet has no intersection with the ring
     if r_p<=r_in*(1-f_r):
-        ring_out_part, contacts_rout = oblate_lc(pars_out, time_array, n_step=n_step)
+        ring_out_part, contacts_rout = oblate_lc(pars_out, time_array, photo_ecc=photo_ecc, n_step=n_step)
         ring_out_part = 1 - ring_out_part
-        ring_in_part, contacts_rin = oblate_lc(pars_in, time_array, n_step=n_step)
+        ring_in_part, contacts_rin = oblate_lc(pars_in, time_array, photo_ecc=photo_ecc, n_step=n_step)
         ring_in_part = 1 - ring_in_part
         flux_array = 1 - (planet_part + opacity * (ring_out_part - ring_in_part))
     elif r_p==r_in:
-        ring_out_part, contacts_rout = oblate_lc(pars_out, time_array, n_step=n_step)
+        ring_out_part, contacts_rout = oblate_lc(pars_out, time_array, photo_ecc=photo_ecc, n_step=n_step)
         ring_out_part = 1 - ring_out_part
         flux_array = 1 - (planet_part + opacity * (ring_out_part - planet_part))
     # planet has intersections with the ring
     else:
+        flags_sp, x_sp, y_sp, alphas_sp = solve_star_ellipse_intersections(x0, y0, r_p, 0., 1e-8)
+        flags_sri, x_sri, y_sri, alphas_sri = solve_star_ellipse_intersections(x0, y0, r_in, f_r, 1e-8)
+        flags_sro, x_sro, y_sro, alphas_sro = solve_star_ellipse_intersections(x0, y0, r_out, f_r, 1e-8)
         x_pri, y_pri, x_pro, y_pro = solve_planet_ring_intersections(x0, y0, r_p, r_in, r_out, f_r)
         ring_part = ring_integral_ring_part(x_sri, y_sri, x_pri, y_pri, -1, x0, y0, r_in, f_r, u1, u2, n_step) # inner ring
         ring_part += ring_integral_ring_part(x_sro, y_sro, x_pro, y_pro, 1, x0, y0, r_out, f_r, u1, u2, n_step) # outer ring
@@ -381,16 +380,16 @@ if __name__=='__main__':
     # perform a test with Kepler-51d's parameters (Liu et al. 2024)
     t_0, b_0, period = 0, 0.003, 130.1845
     r_p, r_ri, r_ro, obliquity = 0.0977, 0.11, 0.13, np.pi/4
+    ecc, omega = 0., np.pi/2.
     u_1, u_2 = 0.208, 0.138
     log10_rho_star = 0.32 # rho_star in unit g/cc
     opacity = 0.5
 
     import time
     for f in [0., 0.2, 0.4]:
-        transit_parameters = [t_0, b_0, period, r_p, r_ri, r_ro, f, obliquity, u_1, u_2, log10_rho_star, opacity]
+        transit_parameters = [t_0, b_0, period, r_p, r_ri, r_ro, f, obliquity, ecc, omega, u_1, u_2, log10_rho_star, opacity]
         time_array = np.linspace(-0.1, 0.1, 1000)
         time0 = time.time()
         flux_array = ring_lc(transit_parameters, time_array)
         time1 = time.time()
         print('Time cost when f_r = %.1f: %.5f s' % (f, time1-time0))
-

@@ -9,5 +9,10 @@ setup(
         'numpy>=1.19.0',
         'matplotlib>=3.3.0',
     ],
+    extras_require={
+        'jax': [
+            'jax>=0.4.0',
+        ],
+    },
     python_requires='>=3.6',
 )
