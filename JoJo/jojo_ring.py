@@ -288,8 +288,8 @@ def ring_lc(transit_parameters, time_array, photo_ecc=False, n_step=300):
             Inner radius of the ring.
         - r_out : float
             Outer radius of the ring.
-        - f_r : float
-            Flattening factor of the ring.
+        - inc_r : float
+            Inclination of the ring (in radians).
         - obliquity : float
             Obliquity of the ring (in radians).
         - ecc : float
@@ -317,7 +317,7 @@ def ring_lc(transit_parameters, time_array, photo_ecc=False, n_step=300):
         Array of flux values corresponding to the input time points.
     """
 
-    tc, b, period, r_p, r_in, r_out, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star, opacity = transit_parameters
+    tc, b, period, r_p, r_in, r_out, inc_r, obliquity, ecc, omega, u1, u2, log10_rho_star, opacity = transit_parameters
     if r_in > r_out:
         raise IOError('The radius of the inner ring should be smaller than the outer ring')
     if r_in < r_p:
@@ -342,8 +342,9 @@ def ring_lc(transit_parameters, time_array, photo_ecc=False, n_step=300):
     x0[x0<0] *= -1
     y0[y0<0] *= -1
 
-    pars_in = [tc, b, period, r_in, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
-    pars_out = [tc, b, period, r_out, f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
+    f_r = 1 - np.cos(inc_r)
+    pars_in = [tc, b, period, r_in*np.sqrt(1-f_r), f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
+    pars_out = [tc, b, period, r_out*np.sqrt(1-f_r), f_r, obliquity, ecc, omega, u1, u2, log10_rho_star]
     pars_p = [tc, b, period, r_p, 0, 0, ecc, omega, u1, u2, log10_rho_star]
 
     planet_part, contacts_p = spherical_lc(pars_p, time_array, photo_ecc=photo_ecc)
