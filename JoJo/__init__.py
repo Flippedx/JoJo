@@ -7,15 +7,6 @@ __all__ = [
     'solve_star_ellipse_intersections',
     'ring_lc',
     'solve_planet_ring_intersections',
-    'jax_oblate_lc',
-    'flux_jacobian',
-    'fisher_matrix',
-    'model_to_sampling_parameters',
-    'sampling_to_model_parameters',
-    'limb_darkening_to_q',
-    'q_to_limb_darkening',
-    'plot_residual_diagnostics',
-    'plot_oblateness_obliquity_polar_corner',
 ]
 
 _EXPORTS = {
@@ -25,15 +16,6 @@ _EXPORTS = {
     'solve_star_ellipse_intersections': ('jojo_oblate', 'solve_star_ellipse_intersections'),
     'ring_lc': ('jojo_ring', 'ring_lc'),
     'solve_planet_ring_intersections': ('jojo_ring', 'solve_planet_ring_intersections'),
-    'jax_oblate_lc': ('jojo_oblate_jax', 'jax_oblate_lc'),
-    'flux_jacobian': ('jojo_oblate_jax', 'flux_jacobian'),
-    'fisher_matrix': ('jojo_oblate_jax', 'fisher_matrix'),
-    'model_to_sampling_parameters': ('utils', 'model_to_sampling_parameters'),
-    'sampling_to_model_parameters': ('utils', 'sampling_to_model_parameters'),
-    'limb_darkening_to_q': ('utils', 'limb_darkening_to_q'),
-    'q_to_limb_darkening': ('utils', 'q_to_limb_darkening'),
-    'plot_residual_diagnostics': ('utils', 'plot_residual_diagnostics'),
-    'plot_oblateness_obliquity_polar_corner': ('utils', 'plot_oblateness_obliquity_polar_corner'),
 }
 
 
