@@ -1,35 +1,51 @@
 # JoJo
-- JoJo is a package for modeling the transit light curves of oblate planets and planets with rings.
-- ```jojo_oblate``` module is used to compute the transiting light curves of oblate planets by using Green's theorem.
-- ```jojo_ring``` module can compute the transiting light curves of spherical planets with rings, also using Green's theorem. Comparing to the existing code <a href='https://github.com/EdanRein/pyPplusS'>pyPplusS</a>, JoJo_with_ring can be about 5-10 times faster.
 
-### Installation
-You can install ``JoJo`` through:
+JoJo calculates primary-transit light curves for oblate planets, asymmetric planets formed from two half-ellipses (egg), and spherical planets with rings. Models assume a unit-radius spherical star with quadratic limb darkening.
+
+## Installation
+
+Python 3.10 or newer is required. NumPy is the only core dependency. From the repository directory:
+
+```bash
+python -m pip install -e .
+# Include plotting support for the examples:
+python -m pip install -e '.[plot]'
 ```
-git clone https://github.com/Flippedx/JoJo
-cd JoJo
-pip install -e .
+
+## Quick start
+
+```python
+import numpy as np
+from JoJo import oblate_lc, spherical_lc, egg_lc, ring_lc
+
+time = np.linspace(-0.15, 0.15, 301)
+parameters = [0, 0.3, 10, 0.1, 0.2, 0.4, 0, np.pi/2, 0.3, 0.2, 0]
+flux, contacts = oblate_lc(parameters, time, exp_time=0, n_step=64)
 ```
 
-### Theory
+Run all three models with `python -m examples.basic`. The [basic usage notebook](examples/basic_usage.ipynb) explains each model and compares Kepler-167e shape signals against equal-area spherical planets. Open it with Jupyter or a notebook-capable editor; install Jupyter separately if needed.
 
-By applying Green’s theorem, the two-dimensional areal integral over the occultation area can be transferred into a one-dimensional line integration over the boundary. The detailed derivation can be found in <a href='https://iopscience.iop.org/article/10.3847/1538-3881/ad9b8c'>Liu et al. 2024</a>.
+## Parameters and outputs
 
-### Usage
+All radii are in stellar-radius units, times and periods in days, and angles in radians. `log10_rho_star` is log10 stellar density in g/cm³; `b` is the impact parameter; `u1, u2` are quadratic limb-darkening coefficients.
 
-- The key function is ```oblate_lc``` in ```jojo_oblate.py```, which returns the light curves with the given transiting parameters and time series. Now it works only for the quadratic limb-darkening law. 
+| Model | Ordered parameter vector | Return |
+| --- | --- | --- |
+| `oblate_lc`, `spherical_lc` | `tc, b, period, rp_me, f, theta, ecc, omega, u1, u2, log10_rho_star` | `(flux, contacts)` |
+| `egg_lc` | `tc, b, period, a_p, a_m, b_egg, theta, ecc, omega, u1, u2, log10_rho_star` | `(flux, contacts)` |
+| `ring_lc` | `tc, b, period, r_p, r_in, r_out, f_r, theta, ecc, omega, u1, u2, log10_rho_star, opacity` | `flux` |
 
-- For comparison, the code to generate quadratic limb-darkening light curves of spherical planets developed by <a href='https://ui.adsabs.harvard.edu/abs/2013PASP..125...83E/abstract'>Eastman, Gaudi & Agol 2013</a> is included in ```occultquad.py```, you can call ```spherical_lc``` in ```jojo_oblate.py``` to generate the light curve of a spherical planet with the same cross-section of the oblate planet.
+For oblate planets, `rp_me = rp_eq * sqrt(1-f)` is the equal-area radius. Ring `r_in, r_out` are equatorial semi-axes; their projected polar semi-axes are `r * (1-f_r)`. The ring parameter `f_r` is flattening, not inclination; opacity ranges from zero to one. Egg `a_p, a_m` are right/left horizontal semi-axes and `b_egg` is their shared vertical semi-axis.
 
-- Based on ```spherical_lc``` and ```oblate_lc```, ```ring_lc``` in ```jojo_ring.py``` returns the light curves of a spherical planets with ring given transiting parameters and time series.
+Use `exp_time=0` for instantaneous flux. A positive exposure uses midpoint subsamples controlled by `supersample_factor` (default 5); `None` infers exposure from the median cadence. Ellipse integrals use Gauss–Legendre quadrature with `n_step=64` nodes per arc by default. `photo_ecc=False` uses Kepler positions; `True` uses a constant-velocity approximation near transit.
 
-See ```example.ipynb``` for specific usages.
+## Important limits
 
-### Future work
-- [x] Calculate light curves for planets with rings.
-- [ ] Applying other LD laws.
-- [ ] May develop JAX version.
-- [ ] Improve the documentation.
+- Radii and semi-axes must be strictly between zero and one. Oblate/ring flattening must be in [0, 1); ring radii must satisfy `r_p <= r_in <= r_out`.
+- Oblate supports two or four boundary intersections; egg partial occultation supports only two.
+- Oblate uses a spherical approximation when `f * rp_eq**2 < 1e-6`; do not rely on shape derivatives across this switch.
+- Contacts are sampled estimates. For eccentric orbits, `tc` follows the reference true anomaly `pi/2 - omega`, not an exactly minimized projected separation.
 
-### Reference
-<a href='https://iopscience.iop.org/article/10.3847/1538-3881/ad9b8c'>Liu et al. 2024</a>
+## Theory
+
+The Green-theorem derivation is described by [Liu et al. (2024)](https://iopscience.iop.org/article/10.3847/1538-3881/ad9b8c). The spherical `occultquad` implementation is retained; see [Eastman, Gaudi & Agol (2013)](https://ui.adsabs.harvard.edu/abs/2013PASP..125...83E/abstract).

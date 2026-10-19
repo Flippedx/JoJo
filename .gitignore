@@ -1,0 +1,17 @@
+supplement/
+webapp/
+/docs/
+/benchmarks/
+TODO.md
+__pycache__/
+*.pyc
+.DS_Store
+.plot_cache/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+.coverage
+htmlcov/
