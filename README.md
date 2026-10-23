@@ -20,7 +20,7 @@ from JoJo import oblate_lc, spherical_lc, egg_lc, ring_lc
 
 time = np.linspace(-0.15, 0.15, 301)
 parameters = [0, 0.3, 10, 0.1, 0.2, 0.4, 0, np.pi/2, 0.3, 0.2, 0]
-flux, contacts = oblate_lc(parameters, time, exp_time=0, n_step=64)
+flux, contacts = oblate_lc(parameters, time, exp_time=0)
 ```
 
 Run all three models with `python -m examples.basic`. The [basic usage notebook](examples/basic_usage.ipynb) explains each model and compares Kepler-167e shape signals against equal-area spherical planets. Open it with Jupyter or a notebook-capable editor; install Jupyter separately if needed.
@@ -37,12 +37,12 @@ All radii are in stellar-radius units, times and periods in days, and angles in 
 
 For oblate planets, `rp_me = rp_eq * sqrt(1-f)` is the equal-area radius. Ring `r_in, r_out` are equatorial semi-axes; their projected polar semi-axes are `r * (1-f_r)`. The ring parameter `f_r` is flattening, not inclination; opacity ranges from zero to one. Egg `a_p, a_m` are right/left horizontal semi-axes and `b_egg` is their shared vertical semi-axis.
 
-Use `exp_time=0` for instantaneous flux. A positive exposure uses midpoint subsamples controlled by `supersample_factor` (default 5); `None` infers exposure from the median cadence. Ellipse integrals use Gauss–Legendre quadrature with `n_step=64` nodes per arc by default. `photo_ecc=False` uses Kepler positions; `True` uses a constant-velocity approximation near transit.
+Use `exp_time=0` for instantaneous flux. Only exposures strictly longer than five minutes (`exp_time > 5/1440` days) use midpoint subsamples controlled by `supersample_factor` (default 5). Shorter exposures, including exactly five minutes, use the center-time flux without averaging. `None` infers exposure from the median cadence and applies the same threshold. Ellipse integrals use Gauss–Legendre quadrature with `n_step=32` nodes per arc by default; pass a larger value for a convergence check. `photo_ecc=False` uses Kepler positions; `True` uses a constant-velocity approximation near transit.
 
 ## Important limits
 
 - Radii and semi-axes must be strictly between zero and one. Oblate/ring flattening must be in [0, 1); ring radii must satisfy `r_p <= r_in <= r_out`.
-- Oblate supports two or four boundary intersections; egg partial occultation supports only two.
+- Oblate and egg support two or four boundary intersections.
 - Oblate uses a spherical approximation when `f * rp_eq**2 < 1e-6`; do not rely on shape derivatives across this switch.
 - Contacts are sampled estimates. For eccentric orbits, `tc` follows the reference true anomaly `pi/2 - omega`, not an exactly minimized projected separation.
 

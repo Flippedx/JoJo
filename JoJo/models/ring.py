@@ -41,7 +41,7 @@ def _selected_arcs(x0, y0, a, b, intersections, residual, u1, u2, n_step, stella
     return total
 
 
-def ring_occultation(x0, y0, r_p, r_in, r_out, f_r, u1, u2, opacity=1.0, n_step=64):
+def ring_occultation(x0, y0, r_p, r_in, r_out, f_r, u1, u2, opacity=1.0, n_step=32):
     """Unnormalized planet + visible-ring flux; projected ring/planet overlap counted once."""
     from .oblate import ellipse_occultation
     from ..core import validation
@@ -131,7 +131,7 @@ def ring_lc(
     transit_parameters,
     time_array,
     photo_ecc=False,
-    n_step=64,
+    n_step=32,
     *,
     exp_time=None,
     supersample_factor=5,
@@ -142,6 +142,7 @@ def ring_lc(
     u1, u2, log10_rho_star, opacity]. Ring radii are equatorial semi-axes.
     All components use the same exposure samples. n_step is the actual number
     of Gauss-Legendre nodes per arc.
+    Only exposures > 5/1440 days use supersampling; None infers the median cadence.
     """
     from ..core import validation
     from ..core.orbit import exposure_grid, sky_position

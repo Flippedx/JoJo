@@ -118,7 +118,7 @@ def solve_star_egg_intersections(x0, y0, a_p, a_m, b_egg, epsilon=1e-8):
     return flags, x_intersect, y_intersect, alphas
 
 
-def full_egg_occultation(x0, y0, a_p, a_m, b_egg, u1, u2, n_step=100):
+def full_egg_occultation(x0, y0, a_p, a_m, b_egg, u1, u2, n_step=32):
     """flux integration: Call ellipse_integral function:
     integrate the right half from bottom to right tip to top;
     left half from top to left tip to bottom."""
@@ -191,58 +191,17 @@ def rotate_to_egg_frame(x, y, theta_egg):
 
 
 def partial_egg_occultation(
-    alphas, x_intersect, y_intersect, x0, y0, a_p, a_m, b_egg, u1, u2, n_step=30
+    alphas, x_intersect, y_intersect, x0, y0, a_p, a_m, b_egg, u1, u2, n_step=32
 ):
-    """"""
+    """Integrate every stellar and egg arc inside the overlap region."""
     if len(x0) == 0:
         return np.zeros_like(x0, dtype=float)
 
-    n_intersections = np.sum(~np.isnan(x_intersect), axis=1)
+    counts = np.sum(np.isfinite(alphas), axis=1)
+    if np.any(~np.isin(counts, [2, 4, 6, 8])):
+        raise ValueError("Partial egg occultation requires an even number of crossings")
 
-    if np.any(n_intersections != 2):
-        raise ValueError("Partial occultation currently requires exactly two intersections")
-
-    # identify the stellar boundary arc inside the egg
-    alpha_0 = alphas[:, 0]
-    alpha_1 = alphas[:, 1]
-    star_direct = (
-        _arc_signs(
-            alpha_0,
-            alpha_1,
-            lambda t: ((np.cos(t) - x0) / np.where(np.cos(t) >= x0, a_p, a_m)) ** 2
-            + ((np.sin(t) - y0) / b_egg) ** 2
-            - 1,
-        )
-        < 0
-    )
-
-    alpha_start = np.where(star_direct, alpha_0, alpha_1)
-    alpha_end = np.where(star_direct, alpha_1, alpha_0 + 2 * np.pi)
-
-    flux_star = star_limb_primitive(alpha_end, u1, u2) - star_limb_primitive(alpha_start, u1, u2)
-    # use star_limb_primitive function to calculate the contribution from stellar arc
-
-    # Identify the egg boundary arc using open-arc samples, not a possible tangent.
-    e_0 = egg_boundary_parameter(x_intersect[:, 0], y_intersect[:, 0], x0, y0, a_p, a_m, b_egg)
-    e_1 = egg_boundary_parameter(x_intersect[:, 1], y_intersect[:, 1], x0, y0, a_p, a_m, b_egg)
-
-    e_low = np.minimum(e_0, e_1)
-    e_high = np.maximum(e_0, e_1)
-    egg_direct = (
-        _arc_signs(
-            e_low,
-            e_high,
-            lambda t: (x0 + np.where(np.cos(t) >= 0, a_p, a_m) * np.cos(t)) ** 2
-            + (y0 + b_egg * np.sin(t)) ** 2
-            - 1,
-        )
-        < 0
-    )
-
-    e_start = np.where(egg_direct, e_low, e_high)
-    e_end = np.where(egg_direct, e_high, e_low + 2 * np.pi)
-
-    flux_egg = np.zeros_like(x0, dtype=float)
+    result = np.zeros_like(x0, dtype=float)
 
     # split the egg boundary at the connection points of the two half ellipses
     intervals = [
@@ -252,42 +211,89 @@ def partial_egg_occultation(
         (5 * np.pi / 2, 7 * np.pi / 2, a_m),
     ]
 
-    for E_left, E_right, a_side in intervals:
-        segment_start = np.maximum(e_start, E_left)
-        segment_end = np.minimum(e_end, E_right)
-
-        VALID = segment_end > segment_start + 1e-12
-
-        if not np.any(VALID):
+    for count in (2, 4, 6, 8):
+        mask = counts == count
+        if not np.any(mask):
             continue
-
-        x_center = x0[VALID]
-        y_center = y0[VALID]
-
-        x_start = x_center + a_side * np.cos(segment_start[VALID])
-        y_start = y_center + b_egg * np.sin(segment_start[VALID])
-
-        x_end = x_center + a_side * np.cos(segment_end[VALID])
-        y_end = y_center + b_egg * np.sin(segment_end[VALID])
-
-        # mirror negative-x segments only during integration
-        MIRROR = x_center < 0
-
-        x_bound = np.column_stack(
-            (np.where(MIRROR, -x_start, x_end), np.where(MIRROR, -x_end, x_start))
+        xc, yc = x0[mask], y0[mask]
+        alpha = np.sort(alphas[mask, :count], axis=1)
+        alpha_end = np.concatenate((alpha[:, 1:], alpha[:, :1] + 2 * np.pi), axis=1)
+        star_inside = (
+            _arc_signs(
+                alpha,
+                alpha_end,
+                lambda t: (
+                    (np.cos(t) - xc[:, None])
+                    / np.where(np.cos(t) >= xc[:, None], a_p, a_m)
+                ) ** 2
+                + ((np.sin(t) - yc[:, None]) / b_egg) ** 2
+                - 1,
+            )
+            < 0
         )
-        y_bound = np.column_stack(
-            (np.where(MIRROR, y_start, y_end), np.where(MIRROR, y_end, y_start))
+        value = np.sum(
+            np.where(
+                star_inside,
+                star_limb_primitive(alpha_end, u1, u2)
+                - star_limb_primitive(alpha, u1, u2),
+                0,
+            ),
+            axis=1,
         )
 
-        flux_egg[VALID] += ellipse_integral(
-            x_bound, y_bound, np.abs(x_center), y_center, a_side, b_egg, u1, u2, n_step
+        e = np.sort(
+            egg_boundary_parameter(
+                x_intersect[mask, :count],
+                y_intersect[mask, :count],
+                xc[:, None],
+                yc[:, None],
+                a_p,
+                a_m,
+                b_egg,
+            ),
+            axis=1,
+        )
+        e_end = np.concatenate((e[:, 1:], e[:, :1] + 2 * np.pi), axis=1)
+        egg_inside = (
+            _arc_signs(
+                e,
+                e_end,
+                lambda t: (xc[:, None] + np.where(np.cos(t) >= 0, a_p, a_m) * np.cos(t)) ** 2
+                + (yc[:, None] + b_egg * np.sin(t)) ** 2
+                - 1,
+            )
+            < 0
         )
 
-    return flux_star + flux_egg
+        for j in range(count):
+            use = egg_inside[:, j]
+            if not np.any(use):
+                continue
+            selected_rows = np.flatnonzero(use)
+            x_center, y_center = xc[use], yc[use]
+            for e_left, e_right, a_side in intervals:
+                segment_start = np.maximum(e[use, j], e_left)
+                segment_end = np.minimum(e_end[use, j], e_right)
+                valid = segment_end > segment_start + 1e-12
+                if not np.any(valid):
+                    continue
+                x_valid, y_valid = x_center[valid], y_center[valid]
+                start, end = segment_start[valid], segment_end[valid]
+                x_bound = np.column_stack(
+                    (x_valid + a_side * np.cos(end), x_valid + a_side * np.cos(start))
+                )
+                y_bound = np.column_stack(
+                    (y_valid + b_egg * np.sin(end), y_valid + b_egg * np.sin(start))
+                )
+                value[selected_rows[valid]] += ellipse_integral(
+                    x_bound, y_bound, x_valid, y_valid, a_side, b_egg, u1, u2, n_step
+                )
+
+        result[mask] = value
+    return result
 
 
-def egg_occultation(x0, y0, a_p, a_m, b_egg, u1, u2, n_step=80, epsilon=1e-8):
+def egg_occultation(x0, y0, a_p, a_m, b_egg, u1, u2, n_step=32, epsilon=1e-8):
     """combine full and partial occultation together."""
     validation.positive_integer(n_step, "n_step")
     x0, y0 = np.broadcast_arrays(
@@ -325,13 +331,15 @@ def egg_occultation(x0, y0, a_p, a_m, b_egg, u1, u2, n_step=80, epsilon=1e-8):
 
 
 def egg_lc(
-    transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5, n_step=64
+    transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5, n_step=32
 ):
     """Return (flux, sampled contacts) for joined half-ellipses.
 
     Parameters: [tc, impact, period, a_p, a_m, b_egg, theta, ecc, omega,
     u1, u2, log10_rho_star]. Angles radians, time days, radii / R_star.
     n_step is the actual Gauss-Legendre node count per half-ellipse arc.
+    Multi-arc overlaps with four or more distinct boundary crossings are supported.
+    Only exposures > 5/1440 days use supersampling; None infers the median cadence.
     """
     p = validation.parameters(transit_parameters, 12)
     tc, impact, period, ap, am, b, theta, ecc, omega, u1, u2, density = p

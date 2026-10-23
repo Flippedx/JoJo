@@ -135,7 +135,7 @@ def star_limb_primitive(alpha, u1, u2):
     )
 
 
-def full_occultation(flags, x0, y0, rp_eq, f, u1, u2, n_step=100, *, method="gauss"):
+def full_occultation(flags, x0, y0, rp_eq, f, u1, u2, n_step=32, *, method="gauss"):
     """Blocked flux when the complete ellipse is inside the star (unnormalized)."""
     x0, y0 = np.asarray(x0, dtype=float), np.asarray(y0, dtype=float)
     b = rp_eq * (1 - f)
@@ -147,7 +147,7 @@ def full_occultation(flags, x0, y0, rp_eq, f, u1, u2, n_step=100, *, method="gau
 
 
 def partial_occultation(
-    flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, f, u1, u2, n_step=100, *, method="gauss"
+    flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, f, u1, u2, n_step=32, *, method="gauss"
 ):
     """Integrate every interior arc; supports both two and four crossings."""
     x0, y0 = np.asarray(x0, dtype=float), np.asarray(y0, dtype=float)

@@ -1,8 +1,17 @@
+from inspect import signature
+
 import numpy as np
 import pytest
 
 from JoJo import oblate_lc, spherical_lc, egg_lc, ring_lc
-from JoJo.models.egg import egg_occultation
+from JoJo.core.integration import full_occultation, partial_occultation
+from JoJo.models.egg import (
+    egg_occultation,
+    full_egg_occultation,
+    partial_egg_occultation,
+    solve_star_egg_intersections,
+)
+from JoJo.models.oblate import ellipse_occultation
 from JoJo.models.ring import ring_occultation
 from .reference import area_flux
 
@@ -10,6 +19,25 @@ OBLATE = [0, 0.3, 10, np.sqrt(0.12 * 0.07), 1 - 0.07 / 0.12, 0.4, 0, np.pi / 2, 
 EGG = [0, 0.3, 10, 0.12, 0.08, 0.07, 0.4, 0, np.pi / 2, 0.3, 0.2, 0]
 RING = [0, 0.3, 10, 0.1, 0.12, 0.2, 0.4, 0.4, 0, np.pi / 2, 0.3, 0.2, 0, 0.5]
 TIME = np.linspace(-0.15, 0.15, 301)
+
+
+@pytest.mark.parametrize(
+    "function",
+    [
+        oblate_lc,
+        egg_lc,
+        ring_lc,
+        ellipse_occultation,
+        egg_occultation,
+        ring_occultation,
+        full_egg_occultation,
+        partial_egg_occultation,
+        full_occultation,
+        partial_occultation,
+    ],
+)
+def test_default_gauss_legendre_order_is_32(function):
+    assert signature(function).parameters["n_step"].default == 32
 
 
 @pytest.mark.parametrize("angle", [0, 0.4, np.pi / 2, 2.4])
@@ -80,6 +108,8 @@ def test_bounds_exposures_and_no_secondary_transit(model, p):
         return result[0] if isinstance(result, tuple) else result
 
     out = flux(TIME, exp_time=0)
+    for exposure in (1 / 1440, 0.003, 5 / 1440):
+        np.testing.assert_allclose(flux(TIME, exp_time=exposure), out, atol=1e-12, rtol=0)
     assert np.all(np.isfinite(out))
     assert np.all((out >= 0) & (out <= 1 + 1e-10))
     np.testing.assert_allclose(out[[0, -1]], 1, atol=1e-12)
@@ -108,11 +138,59 @@ def test_near_circle_limit():
         assert np.max(abs(got - reference)) < 0.03 * f + 2e-8
 
 
-def test_tall_egg_flux_and_explicit_four_crossing_limit():
+def test_tall_egg_flux():
     got, _ = egg_occultation(0, 1.10, 0.08, 0.1, 0.15, 0.3, 0.2, n_step=64)
     assert got[0] == pytest.approx(area_flux(0, 1.10, 0.08, 0.1, 0.15), abs=2e-8)
-    with pytest.raises(ValueError, match="exactly two"):
-        egg_occultation(0, 0.89, 0.8, 0.8, 0.1, 0.3, 0.2)
+
+
+@pytest.mark.parametrize(
+    "center,a_p,a_m,b_egg,one_half",
+    [
+        ((0, 0.89), 0.8, 0.8, 0.1, False),
+        ((-0.1, 0.89), 0.8, 0.5, 0.1, False),
+        ((-0.55, 0.945), 0.95, 0.1, 0.05, True),
+        ((0.55, 0.945), 0.1, 0.95, 0.05, True),
+        ((-0.55, -0.945), 0.95, 0.1, 0.05, True),
+    ],
+)
+def test_four_crossing_egg_against_independent_area(center, a_p, a_m, b_egg, one_half):
+    x, y = center
+    flags, xi, _, alpha = solve_star_egg_intersections(x, y, a_p, a_m, b_egg)
+    assert flags[0] == 0
+    assert np.isfinite(alpha).sum() == 4
+    if one_half:
+        if a_p > a_m:
+            assert np.all(xi[0, :4] >= x)
+        else:
+            assert np.all(xi[0, :4] < x)
+    got, _ = egg_occultation(x, y, a_p, a_m, b_egg, 0.3, 0.2, n_step=64)
+    assert got[0] == pytest.approx(area_flux(x, y, a_p, a_m, b_egg), abs=2e-8)
+
+
+def test_four_crossing_egg_mixed_batch_and_public_lightcurve():
+    x = np.array([-1.5, -0.55, -0.4, 0, 0.4])
+    y = np.array([0.945, 0.945, 0.945, 0.945, 0.945])
+    got, _ = egg_occultation(x, y, 0.95, 0.1, 0.05, 0.3, 0.2, n_step=64)
+    reference = [area_flux(xi, yi, 0.95, 0.1, 0.05) for xi, yi in zip(x, y)]
+    np.testing.assert_allclose(got, reference, atol=2e-8, rtol=0)
+
+    period = 10.0
+    a_over_rstar = 3.753 * period ** (2 / 3)
+    time = -0.55 * period / (2 * np.pi * a_over_rstar)
+    parameters = [0, 0.945, period, 0.95, 0.1, 0.05, 0, 0, np.pi / 2, 0.3, 0.2, 0]
+    flux, _ = egg_lc(parameters, np.array([time]), photo_ecc=True, exp_time=0)
+    total = np.pi * (1 - 0.3 / 3 - 0.2 / 6)
+    reference = 1 - area_flux(-0.55, 0.945, 0.95, 0.1, 0.05) / total
+    assert flux[0] == pytest.approx(reference, abs=2e-8)
+
+
+def test_asymmetric_egg_flux_is_continuous_when_four_crossings_become_two():
+    y = 0.9 + np.array([-1e-6, -1e-10, -1e-12, 0, 1e-12, 1e-10, 1e-6])
+    _, _, _, alpha = solve_star_egg_intersections(0, y, 0.8, 0.7, 0.1, epsilon=1e-10)
+    np.testing.assert_array_equal(np.isfinite(alpha).sum(axis=1), [4, 4, 4, 2, 2, 2, 2])
+    got, _ = egg_occultation(0, y, 0.8, 0.7, 0.1, 0.3, 0.2, n_step=64, epsilon=1e-10)
+    reference = [area_flux(0, yi, 0.8, 0.7, 0.1) for yi in y]
+    np.testing.assert_allclose(got, reference, atol=2e-8, rtol=0)
 
 
 @pytest.mark.parametrize("r_in", [0.1, 0.3])

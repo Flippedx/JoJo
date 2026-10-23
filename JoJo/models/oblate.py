@@ -8,7 +8,7 @@ from ..core.geometry import solve_star_ellipse_intersections
 from ..core.integration import full_occultation, partial_occultation
 
 
-def ellipse_occultation(x0, y0, a, b, u1, u2, n_step=64):
+def ellipse_occultation(x0, y0, a, b, u1, u2, n_step=32):
     """Unnormalized blocked flux and flags for an axis-aligned ellipse."""
     validation.positive_integer(n_step, "n_step")
     x0, y0 = np.broadcast_arrays(
@@ -40,7 +40,7 @@ def _inputs(transit_parameters, time_array, photo_ecc, exp_time, supersample_fac
 
 
 def oblate_lc(
-    transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5, n_step=64
+    transit_parameters, time_array, photo_ecc=False, exp_time=None, supersample_factor=5, n_step=32
 ):
     """Return (normalized flux, sampled contacts) for an oblate planet.
 
@@ -49,6 +49,7 @@ def oblate_lc(
     radius, angles radians, times days, density g/cm^3. n_step is the actual
     Gauss-Legendre node count per boundary arc (also for full occultation).
     exp_time=0 selects instantaneous flux; None infers exposure from cadence.
+    Only exposures > 5/1440 days (five minutes) use supersampling.
     photo_ecc=True uses the constant-velocity approximation near transit.
     """
     validation.positive_integer(n_step, "n_step")

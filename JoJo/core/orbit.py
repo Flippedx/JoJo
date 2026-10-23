@@ -7,8 +7,8 @@ from .validation import positive_integer
 def exposure_grid(time, exp_time=None, supersample_factor=5):
     """Sorted times and midpoint exposure samples, with explicit instantaneous mode.
 
-    None retains cadence inference for compatibility; one time implies zero
-    exposure. Explicit positive exposures are integrated regardless of duration.
+    None infers the median cadence; one time implies zero exposure. Only
+    exposures strictly longer than five minutes use midpoint subsampling.
     """
     time = np.asarray(time, dtype=float)
     if time.ndim != 1 or not np.all(np.isfinite(time)) or np.any(np.diff(time) < 0):
@@ -18,7 +18,7 @@ def exposure_grid(time, exp_time=None, supersample_factor=5):
         exp_time = float(np.median(np.diff(time))) if time.size > 1 else 0.0
     if not np.isscalar(exp_time) or not np.isfinite(exp_time) or exp_time < 0:
         raise ValueError("exp_time must be a nonnegative finite scalar")
-    count = int(supersample_factor) if exp_time > 0 else 1
+    count = int(supersample_factor) if exp_time > 5 / 1440 else 1
     offsets = ((np.arange(count) + 0.5) / count - 0.5) * exp_time
     return time, (time[:, None] + offsets).reshape(-1), count
 
