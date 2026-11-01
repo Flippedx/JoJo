@@ -135,21 +135,130 @@ def star_limb_primitive(alpha, u1, u2):
     )
 
 
+@lru_cache(maxsize=32)
+def _full_ellipse_rule(n_step, method):
+    """Two Gauss or midpoint panels, evaluated together around a full ellipse."""
+    nodes, weights = _quadrature_rule(n_step, method)
+    angle = np.pi * np.concatenate((nodes - 0.5, nodes + 0.5))
+    cosine, sine = np.cos(angle), np.sin(angle)
+    weighted_cosine = cosine * np.pi * np.tile(weights, 2)
+    for values in (cosine, sine, weighted_cosine):
+        values.setflags(write=False)
+    return cosine, sine, weighted_cosine
+
+
 def full_occultation(flags, x0, y0, rp_eq, f, u1, u2, n_step=32, *, method="gauss"):
-    """Blocked flux when the complete ellipse is inside the star (unnormalized)."""
+    """Full-ellipse analytic terms plus one batched two-panel boundary integral.
+
+    Each half uses n_step nodes. Splitting at the ellipse's top and bottom
+    preserves near-limb accuracy without calling the partial-arc kernel twice.
+    """
     x0, y0 = np.asarray(x0, dtype=float), np.asarray(y0, dtype=float)
     b = rp_eq * (1 - f)
-    xb = np.column_stack((x0, x0))
-    yb = np.column_stack((y0 + b, y0 - b))
-    return ellipse_integral(
-        xb, yb, x0, y0, rp_eq, b, u1, u2, n_step, method=method
-    ) + ellipse_integral(xb, yb[:, ::-1], x0, y0, rp_eq, b, u1, u2, n_step, method=method)
+    cosine, sine, weighted_cosine = _full_ellipse_rule(n_step, method)
+    a2, b2 = rp_eq * rp_eq, b * b
+    analytic = np.pi * rp_eq * b * (
+        1 - u1 - 2 * u2 + u2 / 4 * (a2 + b2 + 4 * (x0 * x0 + y0 * y0))
+    )
+    prefactor = u1 / 2 + u2
+    if prefactor == 0 or not x0.size:
+        return analytic
+    xp = x0[:, None] + rp_eq * cosine
+    yp = y0[:, None] + b * sine
+    mu = np.sqrt(np.maximum(0, 1 - xp * xp - yp * yp))
+    numeric = prefactor * b * np.sum(
+        (mu * xp + (1 - yp * yp) * np.arctan2(xp, mu)) * weighted_cosine, axis=1
+    )
+    return analytic + numeric
+
+
+def _partial_two_crossings(x_intersect, y_intersect, x0, y0, a, b, u1, u2, n_step, method):
+    """Specialized two-crossing Green integral with a Gauss or midpoint rule.
+
+    The closed-form stellar and polynomial ellipse terms follow the historical
+    oblate kernel. Reflection reduces the four center quadrants to one; the
+    remaining limb-darkening term is integrated on the ellipse arc.
+    """
+    flip_x, flip_y = x0 < 0, y0 < 0
+    xb = np.where(flip_x[:, None], -x_intersect, x_intersect)
+    yb = np.where(flip_y[:, None], -y_intersect, y_intersect)
+    x, y = np.abs(x0), np.abs(y0)
+    alpha = np.arctan2(yb, xb)
+    order = np.argsort(alpha, axis=1)
+    alpha = np.take_along_axis(alpha, order, axis=1)
+    xb = np.take_along_axis(xb, order, axis=1)
+    yb = np.take_along_axis(yb, order, axis=1)
+
+    delta_alpha = alpha[:, 1] - alpha[:, 0]
+    cross = xb[:, 1] * yb[:, 1] - xb[:, 0] * yb[:, 0]
+    cubic = xb[:, 1] * yb[:, 1] ** 3 - xb[:, 0] * yb[:, 0] ** 3
+    limb = (0.5 - u1 / 2 - 0.75 * u2) * delta_alpha
+    limb += (0.5 - u1 / 2 - 11 * u2 / 12) * cross + u2 / 6 * cubic
+    negative_x = xb[:, 1] < 0
+    limb[negative_x] += (u1 + 2 * u2) * np.pi / 4 * (
+        4 / 3
+        - yb[negative_x, 1]
+        + yb[negative_x, 1] ** 3 / 3
+        - yb[negative_x, 0]
+        + yb[negative_x, 0] ** 3 / 3
+    )
+    limb[~negative_x] += (u1 + 2 * u2) * np.pi / 4 * (
+        yb[~negative_x, 1]
+        - yb[~negative_x, 1] ** 3 / 3
+        - yb[~negative_x, 0]
+        + yb[~negative_x, 0] ** 3 / 3
+    )
+
+    cos_e = np.clip((xb - x[:, None]) / a, -1, 1)
+    sin_e = (yb - y[:, None]) / b
+    e = np.arccos(cos_e)
+    e[sin_e < 0] *= -1
+    e[e[:, 1] > e[:, 0], 0] += 2 * np.pi
+    delta_e = e[:, 0] - e[:, 1]
+    a2, b2, ab = a * a, b * b, a * b
+    x2, y2 = x * x, y * y
+    first = (
+        0.5 * ab * delta_e
+        + 0.5 * (xb[:, 0] * yb[:, 0] - xb[:, 1] * yb[:, 1])
+        + 0.5 * x * (yb[:, 0] - yb[:, 1])
+        - 0.5 * y * (xb[:, 0] - xb[:, 1])
+    )
+    second = (
+        3 / 8 * ab * (a2 + b2 + 4 * x2 + 4 * y2) * delta_e
+        - 1.5 * a * b2 * y * (np.cos(e[:, 0]) - np.cos(e[:, 1]))
+        - 1.5 * b2 * x * y * (np.cos(2 * e[:, 0]) - np.cos(2 * e[:, 1]))
+        - 0.5 * a * b2 * y * (np.cos(3 * e[:, 0]) - np.cos(3 * e[:, 1]))
+        + 0.25 * b * x * (9 * a2 + 3 * b2 + 4 * x2 + 12 * y2)
+        * (np.sin(e[:, 0]) - np.sin(e[:, 1]))
+        + 0.25 * ab * (a2 + 3 * x2 + 3 * y2) * (np.sin(2 * e[:, 0]) - np.sin(2 * e[:, 1]))
+        + 0.25 * b * x * (a2 - b2) * (np.sin(3 * e[:, 0]) - np.sin(3 * e[:, 1]))
+        + 0.03125 * ab * (a2 - 3 * b2) * (np.sin(4 * e[:, 0]) - np.sin(4 * e[:, 1]))
+    )
+    analytic = (1 - u1 - 2 * u2) * first + u2 / 3 * second
+
+    nodes, weights = _quadrature_rule(n_step, method)
+    angle = e[:, 1, None] + delta_e[:, None] * nodes
+    xp = x[:, None] + a * np.cos(angle)
+    yp = y[:, None] + b * np.sin(angle)
+    mu = np.sqrt(np.maximum(0, 1 - xp * xp - yp * yp))
+    integrand = (
+        mu * xp + (1 - yp * yp) * (np.arctan2(xp, mu) - np.pi / 2)
+    ) * (xp - x[:, None])
+    prefactor = (u1 / 2 + u2) * b / a
+    numeric = prefactor * delta_e * np.sum(integrand * weights, axis=1)
+    numeric += np.pi / 2 * (u1 / 2 + u2) * (
+        yb[:, 0]
+        - yb[:, 0] ** 3 / 3
+        - yb[:, 1]
+        + yb[:, 1] ** 3 / 3
+    )
+    return limb + analytic + numeric
 
 
 def partial_occultation(
     flags, alphas, x_intersect, y_intersect, x0, y0, rp_eq, f, u1, u2, n_step=32, *, method="gauss"
 ):
-    """Integrate every interior arc; supports both two and four crossings."""
+    """Use the specialized two-crossing integral or trace all four-crossing arcs."""
     x0, y0 = np.asarray(x0, dtype=float), np.asarray(y0, dtype=float)
     result = np.zeros_like(x0)
     if not len(x0):
@@ -158,12 +267,24 @@ def partial_occultation(
     counts = np.sum(np.isfinite(alphas), axis=1)
     if np.any(~np.isin(counts, [2, 4])):
         raise ValueError("Partial ellipse occultation requires two or four distinct intersections")
-    for count in (2, 4):
-        mask = counts == count
-        if not np.any(mask):
-            continue
+    two = counts == 2
+    if np.any(two):
+        result[two] = _partial_two_crossings(
+            x_intersect[two, :2],
+            y_intersect[two, :2],
+            x0[two],
+            y0[two],
+            a,
+            b,
+            u1,
+            u2,
+            n_step,
+            method,
+        )
+    mask = counts == 4
+    if np.any(mask):
         xc, yc = x0[mask], y0[mask]
-        alpha = np.sort(alphas[mask, :count], axis=1)
+        alpha = np.sort(alphas[mask, :4], axis=1)
         alpha_end = np.concatenate((alpha[:, 1:], alpha[:, :1] + 2 * np.pi), axis=1)
         inside = (
             _arc_signs(
@@ -185,8 +306,8 @@ def partial_occultation(
         )
         e = np.sort(
             np.arctan2(
-                (y_intersect[mask, :count] - yc[:, None]) / b,
-                (x_intersect[mask, :count] - xc[:, None]) / a,
+                (y_intersect[mask, :4] - yc[:, None]) / b,
+                (x_intersect[mask, :4] - xc[:, None]) / a,
             ),
             axis=1,
         )
@@ -201,7 +322,7 @@ def partial_occultation(
             )
             < 0
         )
-        for j in range(count):
+        for j in range(4):
             use = inside[:, j]
             if not np.any(use):
                 continue

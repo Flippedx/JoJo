@@ -36,10 +36,35 @@ def test_four_intersections_are_retained():
     assert np.isfinite(x).sum() == 4
 
 
+@pytest.mark.parametrize("a,f", [(0.8, 0.875), (0.12, 1e-4)])
+def test_mixed_batch_matches_individual_intersections(a, f):
+    x = np.linspace(-1.4, 1.4, 201)
+    y = np.full_like(x, 0.89 if a == 0.8 else 0.3)
+    batch = solve_star_ellipse_intersections(x, y, a, f, 1e-10)
+    individual = [solve_star_ellipse_intersections(xi, yi, a, f, 1e-10) for xi, yi in zip(x, y)]
+    np.testing.assert_array_equal(batch[0], [result[0][0] for result in individual])
+    for field in (1, 2, 3):
+        expected = np.concatenate([result[field] for result in individual], axis=0)
+        np.testing.assert_allclose(batch[field], expected, atol=2e-10, rtol=0, equal_nan=True)
+
+
 def test_tangent_root_is_not_an_extra_crossing():
     flags, x, y, alpha = solve_star_ellipse_intersections([0.0] * 128, [0.9] * 128, 0.8, 0.875)
     assert np.all(flags == 0)
     np.testing.assert_array_equal(np.isfinite(x).sum(axis=1), 2)
+
+
+def test_tangent_batch_avoids_scalar_root_fallback(monkeypatch):
+    from JoJo.core import geometry
+
+    def scalar_fallback(*args):
+        raise AssertionError("Tangent batch should be resolved together")
+
+    monkeypatch.setattr(geometry, "_parameter_intersections", scalar_fallback)
+    y = np.tile(0.9 + np.array([-1e-10, 0.0, 1e-10]), 128)
+    flags, x, _, _ = solve_star_ellipse_intersections(0, y, 0.8, 0.875)
+    assert np.all(flags == 0)
+    np.testing.assert_array_equal(np.isfinite(x).sum(axis=1), np.tile([4, 2, 2], 128))
 
 
 @pytest.mark.parametrize("size", [1, 2, 16, 128, 129])

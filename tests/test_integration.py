@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from JoJo.core.integration import _quadrature_rule, star_limb_primitive
+from JoJo.core.integration import _quadrature_rule, full_occultation, star_limb_primitive
 from JoJo.models.oblate import ellipse_occultation
 from .reference import area_flux
 
@@ -52,6 +52,15 @@ def test_ellipse_against_independent_area_integration(center):
 def test_four_crossing_flux_against_area_integration():
     got, _ = ellipse_occultation(0, 0.89, 0.8, 0.1, 0.3, 0.2, n_step=64)
     assert got[0] == pytest.approx(area_flux(0, 0.89, 0.8, 0.8, 0.1), abs=2e-8)
+
+
+def test_mixed_two_four_and_tangent_batch_against_independent_area():
+    x = np.array([0.95, -0.95, 0.0, 0.0, 0.0])
+    y = np.array([0.2, -0.2, 0.89, 0.9, -0.9])
+    got, flags = ellipse_occultation(x, y, 0.8, 0.1, 0.3, 0.2, n_step=64)
+    assert np.all(flags == 0)
+    reference = [area_flux(xi, yi, 0.8, 0.8, 0.1) for xi, yi in zip(x, y)]
+    np.testing.assert_allclose(got, reference, atol=2e-8, rtol=0)
 
 
 @pytest.mark.parametrize("u1,u2", [(0, 0), (0.3, 0.2), (0.6226, 0.0498)])
@@ -108,6 +117,20 @@ def test_public_oblate_lightcurve_at_tangency():
 def test_uniform_full_ellipse_area():
     got, _ = ellipse_occultation([-0.5, 0, 0.5], [0.1, 0.2, 0.3], 0.12, 0.07, 0, 0)
     np.testing.assert_allclose(got, np.pi * 0.12 * 0.07, atol=2e-14)
+
+
+@pytest.mark.parametrize(
+    "x,y,a,b",
+    [
+        (0.87999, 0, 0.12, 0.07),
+        (-0.87999, 0, 0.12, 0.07),
+        (0.19999, 0, 0.8, 0.1),
+        (0, 0.19999, 0.1, 0.8),
+    ],
+)
+def test_full_ellipse_near_stellar_limb_against_independent_area(x, y, a, b):
+    got = full_occultation(np.array([1]), np.array([x]), np.array([y]), a, 1 - b / a, 0.3, 0.2, 64)
+    assert got[0] == pytest.approx(area_flux(x, y, a, a, b), abs=2e-8)
 
 
 def test_both_quadratures_converge_to_same_area():
