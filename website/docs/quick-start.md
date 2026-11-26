@@ -37,7 +37,7 @@ The ordered vector is `tc, b, period, rp_me, f, theta, ecc, omega, u1, u2, log10
 
 ## More examples
 
-For a runnable comparison of all three non-spherical models, see `examples/basic.py` and `examples/basic_usage.ipynb` in the [repository](https://github.com/Flippedx/JoJo/tree/master/examples).
+The [model guide](models.md#kepler-167e-setup) walks through the oblate, egg, and ring models using the same Kepler-167e inputs. The repository's [example notebook](https://github.com/Flippedx/JoJo/blob/master/examples/basic_usage.ipynb) contains the original examples.
 
 !!! note "Exposure times"
     `exp_time=0` evaluates the model at each requested time. With `exp_time=None`, JoJo infers the median cadence. Midpoint supersampling begins only when the exposure is strictly longer than five minutes; adjust `supersample_factor` if needed.

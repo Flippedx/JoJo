@@ -1,32 +1,80 @@
 # Models and parameters
 
-JoJo takes an **ordered vector** of parameters rather than keyword arguments for the physical model. Times and periods are in days; angles are in radians; radii are divided by the stellar radius. The star has unit radius and quadratic limb-darkening coefficients `u1, u2`. `log10_rho_star` is the base-10 log of stellar density in g/cm³.
+JoJo computes primary-transit light curves for projected silhouettes crossing a unit-radius star with quadratic limb darkening. The model functions take an ordered parameter vector and a one-dimensional array of observation times. Each flux array has one value per observation time and is normalized to one outside transit.
 
-| Model | Parameter order | Output |
+| Model | Parameter order | Return value |
 | --- | --- | --- |
-| Oblate and sphere | `tc, b, period, rp_me, f, theta, ecc, omega, u1, u2, log10_rho_star` | `(flux, contacts)` |
-| Asymmetric egg | `tc, b, period, a_p, a_m, b_egg, theta, ecc, omega, u1, u2, log10_rho_star` | `(flux, contacts)` |
-| Ringed planet | `tc, b, period, r_p, r_in, r_out, f_r, theta, ecc, omega, u1, u2, log10_rho_star, opacity` | `flux` |
+| [Oblate](models/oblate.md) and equal-area sphere | `tc, impact, period, rp_me, f, theta, ecc, omega, u1, u2, log10_rho_star` | `(flux, contacts)` |
+| [Egg](models/egg.md) | `tc, impact, period, a_p, a_m, b_egg, theta, ecc, omega, u1, u2, log10_rho_star` | `(flux, contacts)` |
+| [Ring](models/ring.md) | `tc, impact, period, r_p, r_in, r_out, f_r, theta, ecc, omega, u1, u2, log10_rho_star, alpha` | `flux` |
 
-## Oblate and spherical
+## Shared orbital and stellar inputs
 
-`oblate_lc` models a projected ellipse. Its equal-area radius is `rp_me = rp_eq * sqrt(1-f)`, where `rp_eq` is the horizontal equatorial semi-axis before rotation. The projected polar semi-axis is `rp_eq * (1-f)`. `theta` rotates the ellipse counterclockwise on the sky. `spherical_lc` uses `rp_me` as the sphere radius and ignores `f` and `theta`.
+| Parameter | Meaning |
+| --- | --- |
+| `tc` | Reference transit time in days, in the same time system as `time_array`. For an eccentric orbit, it is the time at true anomaly `π/2 − omega`. Minimum projected separation can occur at a different time. |
+| `impact` | Transit impact parameter, conventionally written *b*, in stellar-radius units. |
+| `period` | Orbital period in days. |
+| `ecc`, `omega` | Eccentricity in `[0, 1)` and argument of periastron in radians. |
+| `u1`, `u2` | Quadratic stellar limb-darkening coefficients. |
+| `log10_rho_star` | Base-10 logarithm of the stellar density expressed in g/cm³. |
 
-## Asymmetric egg
+Shape dimensions are in stellar-radius units. The sky-plane orientation `theta` is in radians and increases counterclockwise. The model pages explain the dimensions specific to each silhouette.
 
-`egg_lc` joins a right half-ellipse of width `a_p` to a left half-ellipse of width `a_m`. Both share vertical semi-axis `b_egg`; the full height is `2*b_egg`. `theta` rotates the projected silhouette.
+## Kepler-167e setup
 
-## Ringed planet
+Run this block before any model example. It reproduces the time grid and the orbital, stellar, and reference-radius inputs used in the [example notebook](https://github.com/Flippedx/JoJo/blob/master/examples/basic_usage.ipynb). The three examples assign illustrative shape parameters to this system and compute model curves for those assumptions.
 
-`ring_lc` combines an opaque spherical planet of radius `r_p` with a projected ring. `r_in` and `r_out` are its inner and outer horizontal semi-axes. Their vertical semi-axes are scaled by `1-f_r`; `theta` sets sky-plane orientation. `opacity` is the fraction of incident stellar light blocked by the ring outside the planet: zero is transparent and one is fully blocking. The ring model returns only the flux array.
+```python
+import matplotlib.pyplot as plt
+import numpy as np
 
-## Numerical options and limits
+from JoJo import egg_lc, oblate_lc, plot_shape, ring_lc, spherical_lc
 
-- `photo_ecc=False` uses Keplerian positions. `True` uses a constant projected velocity approximation around transit.
-- `n_step=32` sets the Gauss–Legendre quadrature nodes per boundary arc. Increase it to check numerical convergence.
-- Contact times are estimates on the supplied sample grid; grazing or sparse events may yield fewer contacts.
-- Radii must be between zero and one; flattening is in `[0, 1)`; rings require `r_p <= r_in <= r_out` and `opacity` in `[0, 1]`.
-- The oblate model switches to a spherical approximation when `f * rp_eq**2 < 1e-6`. Shape derivatives should not be interpreted across this switch.
-- For eccentric orbits, `tc` is defined at a reference true anomaly of `pi/2 - omega`; it need not be the instant of minimum projected separation.
+tc, impact, period = 0.0, 0.233, 1071.23228
+r0 = 0.1281
+ecc, omega = 0.062, np.deg2rad(201)
+u1, u2, log10_rho_star = 0.6226, 0.0498, 0.46
 
-See the [API reference](api.md) for each public function's arguments.
+exp_time = 1 / 1440  # one minute in days
+time = tc + np.arange(-0.5, 0.5, exp_time)
+```
+
+Install the [plotting extra](quick-start.md#install) to use Matplotlib and `plot_shape`.
+
+## Compare a model with an equal-area sphere
+
+Each model example computes `flux` and `sphere_flux` on the same time grid, with the same orbit and limb darkening. The difference `1e6 * (flux - sphere_flux)` measures the effect of changing the shape at fixed inputs, in parts per million (ppm). A positive value means the model with the specified shape blocks less light than the sphere at that time. Two silhouettes can cover the same area and still block different amounts of light because stellar intensity varies across the disk.
+
+After you run a model example, the following code draws its silhouette, plots both light curves, and shows their difference.
+
+```python
+plot_shape(model, params)
+
+fig, (ax_flux, ax_diff) = plt.subplots(
+    2, 1, figsize=(7, 5), sharex=True, height_ratios=(2, 1),
+    layout="constrained",
+)
+time_from_transit = time - tc
+ax_flux.plot(time_from_transit, flux, label=model.capitalize())
+ax_flux.plot(time_from_transit, sphere_flux, "--", label="Equal-area sphere")
+ax_flux.set_ylabel("Normalized flux")
+ax_flux.legend()
+
+ax_diff.plot(time_from_transit, 1e6 * (flux - sphere_flux))
+ax_diff.axhline(0, color="0.5", linestyle=":")
+ax_diff.set_xlabel("Time from reference transit [days]")
+ax_diff.set_ylabel("Model − sphere [ppm]")
+plt.show()
+```
+
+Pass `show_star=True` to `plot_shape` to draw the unit stellar disk with the planet centered at `(0, impact)` for reference.
+
+## Sampling and numerical settings
+
+- Pass finite, sorted times in days. `photo_ecc=False` computes Keplerian positions. Set it to `True` to use a constant projected velocity near transit.
+- Set `exp_time` in days. Use `0` for instantaneous flux or `None` to infer the median cadence. Exposures longer than five minutes use `supersample_factor` midpoint samples per exposure, five by default. The one-minute examples use center-time flux.
+- `n_step=32` is the default quadrature resolution per boundary arc for the oblate, egg, and ring models. Increase it and compare the curves when you need to check numerical convergence.
+- Oblate, egg, and spherical models estimate contact times from the sampled geometry. Grazing transits or sparse sampling can yield fewer than four contacts. The ring model returns flux alone.
+
+See the [API reference](api.md) for the full call signatures.

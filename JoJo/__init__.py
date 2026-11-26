@@ -5,6 +5,7 @@ __all__ = [
     "spherical_lc",
     "ring_lc",
     "egg_lc",
+    "plot_shape",
 ]
 
 _EXPORTS = {
@@ -12,6 +13,7 @@ _EXPORTS = {
     "spherical_lc": ("models.oblate", "spherical_lc"),
     "ring_lc": ("models.ring", "ring_lc"),
     "egg_lc": ("models.egg", "egg_lc"),
+    "plot_shape": ("plotting", "plot_shape"),
 }
 
 

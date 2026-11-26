@@ -18,21 +18,21 @@ Model primary transits of **oblate**, **asymmetric**, and **ringed** planets wit
 <div class="jojo-grid" markdown="block">
 <div class="jojo-card" markdown>
 
-### Oblate planets
+### [Oblate planets](models/oblate.md)
 
 Calculate light curves for projected ellipses with adjustable flattening and sky-plane orientation.
 
 </div>
 <div class="jojo-card" markdown>
 
-### Asymmetric planets
+### [Asymmetric planets](models/egg.md)
 
 Represent a silhouette with two joined half-ellipses and independently chosen left and right radii.
 
 </div>
 <div class="jojo-card" markdown>
 
-### Planetary rings
+### [Planetary rings](models/ring.md)
 
 Calculate transits of a spherical planet surrounded by a projected ring with adjustable attenuation.
 

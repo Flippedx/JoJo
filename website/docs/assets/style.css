@@ -49,8 +49,33 @@
 .jojo-card { border: 1px solid var(--jojo-border); border-radius: .8rem; padding: 1rem 1.1rem; }
 .jojo-card h3 { margin: 0 0 .4rem; }
 .jojo-card p { margin: 0; }
+.jojo-model-figures {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: start;
+  gap: .8rem;
+  margin: 1.1rem 0;
+}
+.md-typeset .jojo-model-figures figure {
+  display: block;
+  margin: 0;
+  padding: .35rem;
+  border: 1px solid var(--jojo-border);
+  border-radius: .6rem;
+}
+.md-typeset .jojo-model-figures img,
+.md-typeset .jojo-orientation-figure {
+  display: block;
+  border-radius: .35rem;
+}
+.md-typeset .jojo-model-figures figcaption {
+  margin: .45rem .25rem .25rem;
+  font-size: .72rem;
+  text-align: left;
+}
 @media (max-width: 700px) {
   .jojo-hero { padding: 1.5rem; }
   .jojo-hero h1 { font-size: 2.3rem; }
   .jojo-grid { grid-template-columns: 1fr; }
+  .jojo-model-figures { grid-template-columns: 1fr; }
 }

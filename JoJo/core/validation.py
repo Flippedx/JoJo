@@ -20,6 +20,11 @@ def flattening(value):
         raise ValueError("flattening must satisfy 0 <= f < 1")
 
 
+def ring_alpha(value):
+    if not np.isfinite(value) or not 0 <= value <= 1:
+        raise ValueError("alpha must lie in [0, 1]")
+
+
 def orbit(period, ecc, u1, u2):
     if period <= 0 or not 0 <= ecc < 1:
         raise ValueError("Require period > 0 and 0 <= ecc < 1")
