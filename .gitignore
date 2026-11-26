@@ -1,6 +1,7 @@
 supplement/
 webapp/
 /docs/
+/site/
 /benchmarks/
 TODO.md
 __pycache__/

@@ -1,0 +1,56 @@
+:root {
+  --md-primary-fg-color: #102b45;
+  --md-accent-fg-color: #087d91;
+  --jojo-soft: #edf7f8;
+  --jojo-border: #d5e7ec;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #10283b;
+  --md-accent-fg-color: #79d8de;
+  --jojo-soft: #142e3e;
+  --jojo-border: #345365;
+}
+
+.md-typeset { font-size: .84rem; line-height: 1.75; }
+.md-grid { max-width: 74rem; }
+.md-typeset h1 { font-weight: 750; letter-spacing: -.035em; }
+.md-typeset h2 { font-weight: 680; letter-spacing: -.02em; }
+.md-typeset a { text-underline-offset: 3px; }
+.md-typeset .md-button { border-radius: .45rem; font-weight: 650; }
+.md-typeset .md-button--primary { background: #087d91; border-color: #087d91; color: white; }
+.md-typeset .md-button--primary:hover { background: #066779; border-color: #066779; }
+
+.jojo-hero {
+  position: relative;
+  overflow: hidden;
+  padding: 2.6rem 2.4rem;
+  border: 1px solid var(--jojo-border);
+  border-radius: 1.15rem;
+  background: linear-gradient(125deg, var(--jojo-soft), transparent 75%);
+}
+.jojo-hero::after {
+  content: "";
+  position: absolute;
+  width: 16rem;
+  height: 16rem;
+  right: -5rem;
+  top: -6rem;
+  border: 2.8rem solid rgba(8, 125, 145, .12);
+  border-radius: 50%;
+  transform: rotate(-25deg) scaleX(.75);
+  pointer-events: none;
+}
+.jojo-hero h1 { margin: .25rem 0 .45rem; font-size: 3rem; }
+.jojo-hero p { max-width: 42rem; position: relative; z-index: 1; }
+.jojo-eyebrow { text-transform: uppercase; letter-spacing: .16em; font-weight: 750; font-size: .69rem; color: #087d91; }
+.jojo-actions { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.35rem; position: relative; z-index: 1; }
+.jojo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; margin: 1.3rem 0; }
+.jojo-card { border: 1px solid var(--jojo-border); border-radius: .8rem; padding: 1rem 1.1rem; }
+.jojo-card h3 { margin: 0 0 .4rem; }
+.jojo-card p { margin: 0; }
+@media (max-width: 700px) {
+  .jojo-hero { padding: 1.5rem; }
+  .jojo-hero h1 { font-size: 2.3rem; }
+  .jojo-grid { grid-template-columns: 1fr; }
+}

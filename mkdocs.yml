@@ -1,0 +1,53 @@
+site_name: JoJo
+site_description: Transit light curves for non-spherical exoplanets
+site_url: https://flippedx.github.io/JoJo/
+repo_url: https://github.com/Flippedx/JoJo
+repo_name: Flippedx/JoJo
+docs_dir: website/docs
+site_dir: site
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.instant
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Overview: index.md
+  - Quick start: quick-start.md
+  - Models: models.md
+  - API reference: api.md
+  - Citation: citation.md
+
+extra_css:
+  - assets/style.css
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.arithmatex:
+      generic: true
+
+plugins:
+  - search
